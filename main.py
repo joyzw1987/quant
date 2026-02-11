@@ -120,7 +120,8 @@ def main(symbol_override=None, output_dir="output"):
     trade_start = parse_time(strategy_cfg.get("trade_start", ""))
     trade_end = parse_time(strategy_cfg.get("trade_end", ""))
 
-    schedule_cfg = config.get("schedule")
+    # Prefer market_hours in config, keep backward compatibility with legacy schedule.
+    schedule_cfg = config.get("market_hours") or config.get("schedule")
     schedule = parse_schedule(schedule_cfg)
 
     risk_cfg = config["risk"]
