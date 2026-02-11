@@ -74,6 +74,20 @@ def compute_stats(trades):
     return total_trades, total_pnl, win_rate, avg_win, avg_loss, profit_factor, expectancy
 
 
+def compute_max_drawdown(equity_curve):
+    peak = None
+    max_drawdown = 0.0
+    for row in equity_curve:
+        equity = float(row.get("equity", row.get("cash", 0.0)))
+        if peak is None or equity > peak:
+            peak = equity
+        drawdown = peak - equity
+        row["drawdown"] = drawdown
+        if drawdown > max_drawdown:
+            max_drawdown = drawdown
+    return max_drawdown
+
+
 def main(symbol_override=None, output_dir="output"):
     config = load_config()
     errors, warnings = validate_config(config, mode="paper")
@@ -233,6 +247,7 @@ def main(symbol_override=None, output_dir="output"):
 
     total_trades, total_pnl, win_rate, avg_win, avg_loss, profit_factor, expectancy = compute_stats(execution.trades)
     final_capital = initial_capital + total_pnl
+    max_drawdown = compute_max_drawdown(equity_curve)
 
     with open(os.path.join(output_dir, "equity_curve.csv"), "w", newline="", encoding="utf-8") as f:
         fieldnames = ["step", "cash", "unrealized", "equity", "drawdown"]
@@ -257,7 +272,7 @@ def main(symbol_override=None, output_dir="output"):
         "total_trades": total_trades,
         "win_rate": win_rate,
         "total_pnl": total_pnl,
-        "max_drawdown": 0.0,
+        "max_drawdown": max_drawdown,
         "profit_factor": profit_factor,
         "sharpe": 0.0,
         "avg_win": avg_win,
