@@ -83,6 +83,10 @@ def run_backtest(
             append_equity(step)
             continue
 
+        if hasattr(risk, "can_open_order") and not risk.can_open_order(position_size):
+            append_equity(step)
+            continue
+
         opened = execution.send_order(
             symbol,
             signal,
@@ -93,6 +97,8 @@ def run_backtest(
         )
         if opened:
             daily_trade_count += 1
+            if hasattr(risk, "record_order"):
+                risk.record_order()
 
         append_equity(step)
 

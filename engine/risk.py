@@ -67,6 +67,18 @@
     def allow_trade(self):
         return not self.trading_halted
 
+    def can_open_order(self, size):
+        if self.max_position_size is not None and size > self.max_position_size:
+            self.halt_reason = "MAX_POSITION_SIZE"
+            return False
+        if self.max_orders_per_day is not None and self.orders_today >= self.max_orders_per_day:
+            self.halt_reason = "MAX_ORDERS_PER_DAY"
+            return False
+        return True
+
+    def record_order(self):
+        self.orders_today += 1
+
     def should_force_close(self):
         if not self.trading_halted:
             return False

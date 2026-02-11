@@ -16,6 +16,17 @@ class RiskManagerTest(unittest.TestCase):
         self.assertTrue(risk.trading_halted)
         self.assertEqual(risk.halt_reason, "MAX_DRAWDOWN")
 
+    def test_can_open_order_limits(self):
+        risk = RiskManager(max_position_size=5, max_orders_per_day=1)
+        self.assertFalse(risk.can_open_order(10))
+        self.assertEqual(risk.halt_reason, "MAX_POSITION_SIZE")
+
+        risk.halt_reason = None
+        self.assertTrue(risk.can_open_order(2))
+        risk.record_order()
+        self.assertFalse(risk.can_open_order(2))
+        self.assertEqual(risk.halt_reason, "MAX_ORDERS_PER_DAY")
+
 
 if __name__ == "__main__":
     unittest.main()
