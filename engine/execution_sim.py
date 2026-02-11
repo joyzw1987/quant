@@ -1,13 +1,13 @@
-﻿import random
-
-
 class SimExecution:
-    def __init__(self, slippage=1):
+    def __init__(self, slippage=1, contract_multiplier=1, commission_per_contract=0.0, commission_min=0.0):
         self.slippage = slippage
+        self.contract_multiplier = contract_multiplier
+        self.commission_per_contract = commission_per_contract
+        self.commission_min = commission_min
         self.position = None
         self.trades = []
 
-    def send_order(self, symbol, signal, price, size, atr=None, risk=None, contract_multiplier=1):
+    def send_order(self, symbol, signal, price, size, atr=None, risk=None, contract_multiplier=None):
         if self.position is not None:
             return False
         direction = "LONG" if signal > 0 else "SHORT"
@@ -19,18 +19,26 @@ class SimExecution:
             "direction": direction,
             "entry_price": fill_price,
             "size": size,
+            "contract_multiplier": contract_multiplier or self.contract_multiplier,
             "stop_price": stop_price,
             "take_profit": take_profit,
             "entry_time": None,
         }
         return True
 
+    def _calc_round_trip_commission(self, size):
+        open_fee = max(self.commission_per_contract * size, self.commission_min)
+        close_fee = max(self.commission_per_contract * size, self.commission_min)
+        return open_fee + close_fee
+
     def check_exit(self, price, risk=None):
         if self.position is None:
             return False, 0.0
+
         direction = self.position["direction"]
         entry = self.position["entry_price"]
         size = self.position["size"]
+        contract_multiplier = self.position.get("contract_multiplier", self.contract_multiplier)
         stop_price = self.position.get("stop_price")
         take_profit = self.position.get("take_profit")
 
@@ -54,12 +62,21 @@ class SimExecution:
         if not exit_flag:
             return False, 0.0
 
-        pnl = (exit_price - entry) * size if direction == "LONG" else (entry - exit_price) * size
+        gross_pnl = (
+            (exit_price - entry) * size * contract_multiplier
+            if direction == "LONG"
+            else (entry - exit_price) * size * contract_multiplier
+        )
+        commission = self._calc_round_trip_commission(size)
+        pnl = gross_pnl - commission
         trade = {
             "direction": direction,
             "entry_price": entry,
             "exit_price": exit_price,
             "size": size,
+            "contract_multiplier": contract_multiplier,
+            "gross_pnl": gross_pnl,
+            "commission": commission,
             "pnl": pnl,
         }
         self.trades.append(trade)
@@ -69,15 +86,26 @@ class SimExecution:
     def force_close(self, price):
         if self.position is None:
             return 0.0
+
         direction = self.position["direction"]
         entry = self.position["entry_price"]
         size = self.position["size"]
-        pnl = (price - entry) * size if direction == "LONG" else (entry - price) * size
+        contract_multiplier = self.position.get("contract_multiplier", self.contract_multiplier)
+        gross_pnl = (
+            (price - entry) * size * contract_multiplier
+            if direction == "LONG"
+            else (entry - price) * size * contract_multiplier
+        )
+        commission = self._calc_round_trip_commission(size)
+        pnl = gross_pnl - commission
         trade = {
             "direction": direction,
             "entry_price": entry,
             "exit_price": price,
             "size": size,
+            "contract_multiplier": contract_multiplier,
+            "gross_pnl": gross_pnl,
+            "commission": commission,
             "pnl": pnl,
         }
         self.trades.append(trade)

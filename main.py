@@ -151,7 +151,12 @@ def main(symbol_override=None, output_dir="output"):
         take_profit_multiplier=risk_cfg["take_profit_multiplier"],
     )
 
-    execution = SimExecution(slippage=config["contract"]["slippage"])
+    execution = SimExecution(
+        slippage=config["contract"]["slippage"],
+        contract_multiplier=config["contract"].get("multiplier", 1),
+        commission_per_contract=config["contract"].get("commission_per_contract", 0.0),
+        commission_min=config["contract"].get("commission_min", 0.0),
+    )
 
     logger = Logger(config.get("monitor", {}).get("log_file", "logs/runtime.log"))
     alert = AlertManager(config.get("monitor", {}).get("alert_file", "logs/alerts.log"))
@@ -234,7 +239,15 @@ def main(symbol_override=None, output_dir="output"):
             equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
             continue
 
-        opened = execution.send_order(symbol, signal, price, position_size, atr=atr, risk=risk)
+        opened = execution.send_order(
+            symbol,
+            signal,
+            price,
+            position_size,
+            atr=atr,
+            risk=risk,
+            contract_multiplier=config["contract"].get("multiplier", 1),
+        )
         if opened:
             daily_trade_count += 1
 
