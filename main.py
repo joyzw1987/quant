@@ -14,6 +14,7 @@ from engine.param_optimizer import pick_best_params
 from engine.strategy_state import StrategyState
 from engine.runtime_state import RuntimeState
 from engine.config_validator import validate_config, report_validation
+from engine.backtest_engine import run_backtest
 
 
 _gui_started = False
@@ -168,8 +169,6 @@ def main(symbol_override=None, output_dir="output"):
     daily_trade_count = 0
     max_trades_per_day = config["backtest"]["max_trades_per_day"]
 
-    current_date = None
-
     def update_runtime(extra=None):
         payload = {
             "symbol": symbol,
@@ -181,82 +180,23 @@ def main(symbol_override=None, output_dir="output"):
             payload.update(extra)
         runtime.update(payload)
 
-    for step, bar in enumerate(bars):
-        price = bar["close"]
-        bar_dt = datetime.strptime(bar["datetime"], "%Y-%m-%d %H:%M")
-        bar_date = bar_dt.date()
-
-        if current_date is None or bar_date != current_date:
-            current_date = bar_date
-            daily_trade_count = 0
-            risk.on_new_day()
-            if hasattr(strategy, "on_new_day"):
-                strategy.on_new_day()
-            update_runtime()
-
-        if not schedule_allows(bar_dt, schedule):
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        if trade_start and bar_dt.time() < trade_start:
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-        if trade_end and bar_dt.time() > trade_end:
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        if execution.position is not None:
-            closed, pnl = execution.check_exit(price, risk)
-            if closed:
-                capital += pnl
-                risk.update_after_trade(pnl, capital)
-                if hasattr(strategy, "on_trade_close"):
-                    strategy.on_trade_close(pnl, step)
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        if daily_trade_count >= max_trades_per_day:
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        if not risk.allow_trade():
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        prices = [b["close"] for b in bars[: step + 1]]
-        atr = risk.update_atr(bars[: step + 1])
-        if atr is not None and atr < strategy_cfg.get("min_atr", 0.0):
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        signal = strategy.generate_signal(prices, step=step)
-        if signal == 0:
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        position_size = risk.calc_position_size(capital, price, atr)
-        if position_size <= 0:
-            equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-            continue
-
-        opened = execution.send_order(
-            symbol,
-            signal,
-            price,
-            position_size,
-            atr=atr,
-            risk=risk,
-            contract_multiplier=config["contract"].get("multiplier", 1),
-        )
-        if opened:
-            daily_trade_count += 1
-
-        equity_curve.append({"step": step, "cash": capital, "unrealized": 0, "equity": capital, "drawdown": 0})
-
-    if execution.position is not None:
-        pnl = execution.force_close(bars[-1]["close"])
-        capital += pnl
-        risk.update_after_trade(pnl, capital)
+    result = run_backtest(
+        bars=bars,
+        strategy=strategy,
+        risk=risk,
+        execution=execution,
+        strategy_cfg=strategy_cfg,
+        symbol=symbol,
+        max_trades_per_day=max_trades_per_day,
+        trade_start=trade_start,
+        trade_end=trade_end,
+        schedule=schedule,
+        initial_capital=initial_capital,
+        schedule_checker=schedule_allows,
+        runtime_update=update_runtime,
+    )
+    capital = result["capital"]
+    equity_curve = result["equity_curve"]
 
     total_trades, total_pnl, win_rate, avg_win, avg_loss, profit_factor, expectancy = compute_stats(execution.trades)
     final_capital = initial_capital + total_pnl
