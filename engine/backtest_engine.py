@@ -28,6 +28,15 @@ def run_backtest(
         price = bar["close"]
         bar_dt = datetime.strptime(bar["datetime"], "%Y-%m-%d %H:%M")
         bar_date = bar_dt.date()
+        if runtime_update:
+            runtime_update(
+                {
+                    "last_step": step,
+                    "last_bar_time": bar["datetime"],
+                    "last_price": price,
+                    "halt_reason": risk.halt_reason,
+                }
+            )
 
         if current_date is None or bar_date != current_date:
             current_date = bar_date
@@ -36,7 +45,7 @@ def run_backtest(
             if hasattr(strategy, "on_new_day"):
                 strategy.on_new_day()
             if runtime_update:
-                runtime_update()
+                runtime_update({"event": "new_day", "trading_day": str(bar_date)})
 
         if not schedule_checker(bar_dt, schedule):
             append_equity(step)

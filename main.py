@@ -175,6 +175,7 @@ def main(symbol_override=None, output_dir="output"):
             "capital": capital,
             "position": execution.position,
             "trades": len(execution.trades),
+            "halt_reason": risk.halt_reason,
         }
         if extra:
             payload.update(extra)
