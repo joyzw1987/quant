@@ -204,7 +204,7 @@ def main(symbol_override=None, output_dir="output"):
     max_drawdown = compute_max_drawdown(equity_curve)
 
     with open(os.path.join(output_dir, "equity_curve.csv"), "w", newline="", encoding="utf-8") as f:
-        fieldnames = ["step", "cash", "unrealized", "equity", "drawdown"]
+        fieldnames = ["step", "cash", "unrealized", "equity", "drawdown", "datetime"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in equity_curve:

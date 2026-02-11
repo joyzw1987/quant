@@ -7,7 +7,7 @@ class SimExecution:
         self.position = None
         self.trades = []
 
-    def send_order(self, symbol, signal, price, size, atr=None, risk=None, contract_multiplier=None):
+    def send_order(self, symbol, signal, price, size, atr=None, risk=None, contract_multiplier=None, bar_time=None):
         if self.position is not None:
             return False
         direction = "LONG" if signal > 0 else "SHORT"
@@ -22,7 +22,7 @@ class SimExecution:
             "contract_multiplier": contract_multiplier or self.contract_multiplier,
             "stop_price": stop_price,
             "take_profit": take_profit,
-            "entry_time": None,
+            "entry_time": bar_time,
         }
         return True
 
@@ -31,7 +31,7 @@ class SimExecution:
         close_fee = max(self.commission_per_contract * size, self.commission_min)
         return open_fee + close_fee
 
-    def check_exit(self, price, risk=None):
+    def check_exit(self, price, risk=None, bar_time=None):
         if self.position is None:
             return False, 0.0
 
@@ -78,12 +78,14 @@ class SimExecution:
             "gross_pnl": gross_pnl,
             "commission": commission,
             "pnl": pnl,
+            "entry_time": self.position.get("entry_time"),
+            "exit_time": bar_time,
         }
         self.trades.append(trade)
         self.position = None
         return True, pnl
 
-    def force_close(self, price):
+    def force_close(self, price, bar_time=None):
         if self.position is None:
             return 0.0
 
@@ -107,6 +109,8 @@ class SimExecution:
             "gross_pnl": gross_pnl,
             "commission": commission,
             "pnl": pnl,
+            "entry_time": self.position.get("entry_time"),
+            "exit_time": bar_time,
         }
         self.trades.append(trade)
         self.position = None
