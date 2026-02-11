@@ -84,6 +84,16 @@ python data_update_merge.py --symbol M2609 --out data/M2609.csv
 python run_update_backtest.py --symbol M2609 --days 20 --out data/M2609.csv
 ```
 
+方式 L：Walk-Forward 滚动验证（防过拟合）
+```
+python walk_forward_runner.py --symbol M2609 --train-size 480 --test-size 120 --step-size 120
+```
+
+方式 M：月度收益/回撤/交易统计
+```
+python monthly_report.py
+```
+
 ## 2. CTP 对接说明
 - 参考 `docs/ctp_checklist.md`
 
@@ -91,8 +101,19 @@ python run_update_backtest.py --symbol M2609 --days 20 --out data/M2609.csv
 - `output/performance.json` 回测指标
 - `output/equity_curve.csv` 权益曲线
 - `output/<symbol>/report.html` 单合约报告
+- `output/walk_forward_<symbol>.csv` 滚动窗口明细
+- `output/walk_forward_<symbol>.json` 滚动验证汇总
+- `output/monthly_report.csv` 月度收益/回撤/交易统计
+- `output/monthly_report.json` 月度汇总
 
-## 4. 回测专用风控开关
+## 4. 数据前置要求
+- 运行 `main.py`、`walk_forward_runner.py` 前，需先准备 `data/<symbol>.csv` 分钟线数据。
+- 示例命令：
+```
+python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
+```
+
+## 5. 回测专用风控开关
 ```
 "backtest": {
   "disable_halt_on_backtest": true
