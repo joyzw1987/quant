@@ -4,9 +4,38 @@ from engine.order_state import (
     ORDER_STATUS_CANCELING,
     ORDER_STATUS_CANCELED,
     ORDER_STATUS_FILLED,
+    ORDER_STATUS_PARTIAL,
     ORDER_STATUS_REJECTED,
     OrderStateMachine,
 )
+
+
+def _to_float(value, default=0.0):
+    try:
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _normalize_remote_status(status, filled, size):
+    text = str(status or "").strip().upper()
+    if text in ("FILLED", "ALL_TRADED", "ALLTRADED", "TRADED"):
+        return ORDER_STATUS_FILLED
+    if text in ("PARTIAL", "PART_TRADED", "PARTTRADED", "PART_TRADED_QUEUEING", "PARTTRADEDQUEUEING"):
+        return ORDER_STATUS_PARTIAL
+    if text in ("CANCELING", "PENDING_CANCEL"):
+        return ORDER_STATUS_CANCELING
+    if text in ("CANCELED", "CANCELLED", "CANCEL", "ALL_CANCELED", "ALLCANCELED"):
+        return ORDER_STATUS_CANCELED
+    if text in ("REJECTED", "REJECT", "ERROR", "INSERT_REJECTED", "INSERTREJECTED"):
+        return ORDER_STATUS_REJECTED
+    if text in ("NEW", "SUBMITTED", "NO_TRADE_QUEUEING", "NOTRADEQUEUEING", "ACKED", "ACCEPTED"):
+        return ORDER_STATUS_ACKED
+    if size > 0 and filled >= size:
+        return ORDER_STATUS_FILLED
+    if filled > 0:
+        return ORDER_STATUS_PARTIAL
+    return ORDER_STATUS_ACKED
 
 
 class CtpMarketDataGateway(GatewayBase):
@@ -77,6 +106,47 @@ class CtpTradeGateway(GatewayBase):
         self.protection_mode = bool(enabled)
         self.protection_reason = str(reason or "")
 
+    def _sync_order_from_remote(self, row):
+        if not isinstance(row, dict):
+            return None
+        order_id = row.get("order_id")
+        if not order_id:
+            return None
+
+        order = self.order_state.get(order_id)
+        symbol = row.get("symbol", "")
+        direction = row.get("direction", "")
+        price = _to_float(row.get("price"), 0.0)
+        size = _to_float(row.get("size"), 0.0)
+        filled = _to_float(row.get("filled", row.get("volume_traded", row.get("traded", 0.0))), 0.0)
+        if order is None:
+            order = self.order_state.create_order(
+                order_id=order_id,
+                symbol=symbol,
+                direction=direction,
+                price=price,
+                size=size,
+                order_type=row.get("order_type", "LIMIT"),
+            )
+            # Remote order is already acknowledged by exchange/gateway.
+            self.order_state.transition(order_id, ORDER_STATUS_ACKED, filled=filled)
+        else:
+            size = _to_float(order.get("size"), size)
+
+        target_status = _normalize_remote_status(row.get("status"), filled=filled, size=size)
+        current = self.order_state.get(order_id)
+        if current:
+            if current.get("status") != target_status:
+                self.order_state.transition(
+                    order_id,
+                    target_status,
+                    filled=filled,
+                    message=str(row.get("message") or ""),
+                )
+            else:
+                current["filled"] = filled
+        return self.order_state.get(order_id)
+
     def connect(self, **kwargs):
         try:
             if self.api and hasattr(self.api, "connect"):
@@ -123,7 +193,21 @@ class CtpTradeGateway(GatewayBase):
                 order_id = f"LOCAL_{len(self.order_state.orders) + 1:08d}"
             order = self.order_state.create_order(order_id, symbol, direction, price, size, order_type=order_type)
             self.order_state.transition(order_id, ORDER_STATUS_ACKED)
-            self.order_state.transition(order_id, ORDER_STATUS_FILLED, filled=size)
+            if self.api and hasattr(self.api, "query_orders"):
+                try:
+                    remote = list(self.api.query_orders() or [])
+                    for row in remote:
+                        if row.get("order_id") == order_id:
+                            synced = self._sync_order_from_remote(row)
+                            if synced is not None:
+                                order = synced
+                            break
+                except Exception:
+                    pass
+            else:
+                # Fallback local mode: fill immediately to keep compatibility.
+                self.order_state.transition(order_id, ORDER_STATUS_FILLED, filled=size)
+                order = self.order_state.get(order_id) or order
             return {"ok": True, "order_id": order_id, "status": order["status"], "order": order}
         except Exception as exc:
             self.last_error = str(exc)
@@ -160,11 +244,14 @@ class CtpTradeGateway(GatewayBase):
             remote = []
             if self.api and hasattr(self.api, "query_orders"):
                 remote = list(self.api.query_orders() or [])
-            merged = {o["order_id"]: o for o in self.order_state.all_orders() if o.get("order_id")}
+            for row in remote:
+                self._sync_order_from_remote(row)
+            merged = {o["order_id"]: dict(o) for o in self.order_state.all_orders() if o.get("order_id")}
             for row in remote:
                 oid = row.get("order_id")
                 if oid:
-                    merged[oid] = row
+                    base = merged.get(oid, {})
+                    merged[oid] = {**row, **base}
             return list(merged.values())
         except Exception as exc:
             self.last_error = str(exc)
