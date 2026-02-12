@@ -33,6 +33,20 @@ def run_ctp(config):
     ctp_main()
 
 
+def run_portfolio():
+    from portfolio_runner import main_portfolio
+
+    print("[RUN] mode=portfolio")
+    main_portfolio()
+
+
+def run_all():
+    from run_all import main as run_all_main
+
+    print("[RUN] mode=all")
+    run_all_main()
+
+
 def run_research_cycle(config, symbol=None):
     from research_cycle import main as cycle_main
 
@@ -48,7 +62,11 @@ def run_research_cycle(config, symbol=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Unified runner: sim/sim_live/ctp/research_cycle")
-    parser.add_argument("--mode", default=None, choices=["sim", "sim_gui", "sim_live", "ctp", "research_cycle"])
+    parser.add_argument(
+        "--mode",
+        default=None,
+        choices=["sim", "sim_gui", "sim_live", "ctp", "research_cycle", "portfolio", "all"],
+    )
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--auto-start", action="store_true", help="for sim_gui mode")
@@ -73,6 +91,18 @@ def main():
     config = load_config()
     mode = args.mode or config.get("run_mode", "sim")
     symbol = args.symbol or config.get("symbol")
+
+    if mode == "portfolio":
+        errors, warnings = validate_config(config, mode="paper")
+        report_validation(errors, warnings)
+        run_portfolio()
+        return
+
+    if mode == "all":
+        errors, warnings = validate_config(config, mode="paper")
+        report_validation(errors, warnings)
+        run_all()
+        return
 
     if mode == "ctp":
         errors, warnings = validate_config(config, mode="ctp")

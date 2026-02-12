@@ -33,6 +33,14 @@ python ctp_prepare.py
 ```
 python run.py
 ```
+组合回测：
+```
+python run.py --mode portfolio
+```
+一键全流程（批量回测 + 报告 + 组合 + 仪表盘）：
+```
+python run.py --mode all
+```
 模拟交易（本地，跑完整策略+风控+撮合）：
 ```
 python run.py --mode sim
