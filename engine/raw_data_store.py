@@ -58,7 +58,9 @@ def save_raw_minutes_by_date_session(df, symbol, raw_root, config):
 
     saved = []
     for (trade_date, session), group in working.groupby(["trade_date", "session"]):
-        day_dir = root / trade_date
+        year = trade_date[0:4]
+        month = trade_date[5:7]
+        day_dir = root / year / month / trade_date
         day_dir.mkdir(parents=True, exist_ok=True)
         file_path = day_dir / f"{symbol}_{session}.csv"
 

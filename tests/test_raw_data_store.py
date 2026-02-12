@@ -29,7 +29,7 @@ class RawDataStoreTest(unittest.TestCase):
             files = save_raw_minutes_by_date_session(df, "M2609", td, cfg)
             self.assertEqual(3, len(files))
 
-            day_dir = Path(td) / "2026-02-12"
+            day_dir = Path(td) / "2026" / "02" / "2026-02-12"
             self.assertTrue((day_dir / "M2609_s1_0900_1130.csv").exists())
             self.assertTrue((day_dir / "M2609_s2_1330_1500.csv").exists())
             self.assertTrue((day_dir / "M2609_other.csv").exists())
@@ -51,7 +51,7 @@ class RawDataStoreTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             save_raw_minutes_by_date_session(first, "M2609", td, cfg)
             save_raw_minutes_by_date_session(second, "M2609", td, cfg)
-            target = Path(td) / "2026-02-12" / "M2609_s1_0900_1130.csv"
+            target = Path(td) / "2026" / "02" / "2026-02-12" / "M2609_s1_0900_1130.csv"
             merged = pd.read_csv(target)
             self.assertEqual(2, len(merged))
 

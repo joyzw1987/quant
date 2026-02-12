@@ -103,7 +103,7 @@ python daily_weekly_report.py
 ```
 python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
 ```
-说明：默认会把抓取到的原始分钟数据同步归档到 `E:/quantData`，按“日期目录 + 交易时段文件”保存。
+说明：默认会把抓取到的原始分钟数据同步归档到 `E:/quantData`，按“年目录/月份目录/交易日目录 + 交易时段文件”保存。
 
 方式 K-1：增量合并更新（推荐）
 ```
@@ -142,8 +142,8 @@ python monthly_report.py
 - `output/walk_forward_<symbol>.json` 滚动验证汇总
 - `output/monthly_report.csv` 月度收益/回撤/交易统计
 - `output/monthly_report.json` 月度汇总
-- `E:/quantData/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
-- `E:/quantData/<YYYY-MM-DD>/<symbol>_other.csv` 不在配置时段内的数据
+- `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
+- `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_other.csv` 不在配置时段内的数据
 
 ## 4. 数据前置要求
 - 运行 `main.py`、`walk_forward_runner.py` 前，需先准备 `data/<symbol>.csv` 分钟线数据。
