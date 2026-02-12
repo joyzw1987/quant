@@ -1,6 +1,11 @@
 import unittest
 
-from sim_live_runner import _build_dq_report, get_no_new_data_alert_level, get_no_new_data_error_threshold
+from sim_live_runner import (
+    _build_dq_report,
+    get_drawdown_alert_threshold,
+    get_no_new_data_alert_level,
+    get_no_new_data_error_threshold,
+)
 
 
 class SimLiveRunnerTest(unittest.TestCase):
@@ -25,6 +30,11 @@ class SimLiveRunnerTest(unittest.TestCase):
         report = _build_dq_report(bars)
         self.assertEqual(report["total"], 3)
         self.assertEqual(report["missing"], 2)
+
+    def test_drawdown_threshold(self):
+        self.assertIsNone(get_drawdown_alert_threshold({}))
+        cfg = {"monitor": {"drawdown_alert_threshold": 8000}}
+        self.assertEqual(get_drawdown_alert_threshold(cfg), 8000.0)
 
 
 if __name__ == "__main__":

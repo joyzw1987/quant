@@ -454,6 +454,18 @@ def _to_float(value):
         return None
 
 
+def get_drawdown_alert_threshold(cfg):
+    monitor_cfg = (cfg or {}).get("monitor", {})
+    value = monitor_cfg.get("drawdown_alert_threshold")
+    if value is None:
+        return None
+    try:
+        threshold = float(value)
+    except Exception:
+        return None
+    return threshold if threshold >= 0 else None
+
+
 def _resolve_tune_cfg(cfg, args):
     auto_adjust = cfg.get("auto_adjust") or {}
 
@@ -552,6 +564,7 @@ def main():
     use_market_hours = not args.ignore_market_hours
     last_bar_time_seen = _read_latest_bar_time(data_out)
     no_new_data_streak = 0
+    drawdown_alert_active = False
 
     print(
         f"[SIM_LIVE] start symbol={symbol} source={args.source} interval={interval_sec}s "
@@ -728,6 +741,29 @@ def main():
                     no_new_data_streak = 0
                     processed = session.process_bars(bars=bars, start_idx=start_idx, runtime=runtime)
                     perf, paper_errors = session.flush_outputs()
+                    max_dd = _to_float(perf.get("max_drawdown"))
+                    threshold = get_drawdown_alert_threshold(cfg)
+                    if threshold is not None and max_dd is not None:
+                        if max_dd >= threshold and not drawdown_alert_active:
+                            drawdown_alert_active = True
+                            runtime.update(
+                                {
+                                    "event": "sim_live_drawdown_threshold_reached",
+                                    "mode": "sim_live",
+                                    "cycle": cycle,
+                                    "symbol": symbol,
+                                    "max_drawdown": max_dd,
+                                    "threshold": threshold,
+                                }
+                            )
+                            alert.send_event(
+                                event="sim_live_drawdown_threshold_reached",
+                                level="WARN",
+                                message=f"cycle={cycle} symbol={symbol}",
+                                data={"max_drawdown": max_dd, "threshold": threshold},
+                            )
+                        elif max_dd < threshold:
+                            drawdown_alert_active = False
                     strategy_name = session.strategy_cfg.get("name", "ma")
                     runtime.update(
                         {
@@ -965,6 +1001,29 @@ def main():
                         "total_trades": perf.get("total_trades"),
                     }
                 )
+                max_dd = _to_float(perf.get("max_drawdown"))
+                threshold = get_drawdown_alert_threshold(cfg)
+                if threshold is not None and max_dd is not None:
+                    if max_dd >= threshold and not drawdown_alert_active:
+                        drawdown_alert_active = True
+                        runtime.update(
+                            {
+                                "event": "sim_live_drawdown_threshold_reached",
+                                "mode": "sim_live",
+                                "cycle": cycle,
+                                "symbol": symbol,
+                                "max_drawdown": max_dd,
+                                "threshold": threshold,
+                            }
+                        )
+                        alert.send_event(
+                            event="sim_live_drawdown_threshold_reached",
+                            level="WARN",
+                            message=f"cycle={cycle} symbol={symbol}",
+                            data={"max_drawdown": max_dd, "threshold": threshold},
+                        )
+                    elif max_dd < threshold:
+                        drawdown_alert_active = False
                 print(
                     f"[SIM_LIVE] cycle={cycle} done pnl={current_pnl} "
                     f"trades={perf.get('total_trades')}"
