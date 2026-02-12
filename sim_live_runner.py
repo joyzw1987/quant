@@ -38,6 +38,24 @@ def _read_perf(path):
         return {}
 
 
+def read_paper_check_status(output_dir):
+    path = os.path.join(output_dir, "paper_check_report.json")
+    data = _read_perf(path)
+    if not isinstance(data, dict) or not data:
+        return {"ok": None, "error_count": 0, "errors": []}
+    raw_errors = data.get("errors")
+    errors = raw_errors if isinstance(raw_errors, list) else []
+    raw_count = data.get("error_count", len(errors))
+    try:
+        error_count = int(raw_count)
+    except Exception:
+        error_count = len(errors)
+    ok = data.get("ok")
+    if ok is None:
+        ok = error_count == 0
+    return {"ok": bool(ok), "error_count": error_count, "errors": errors}
+
+
 def _run_fetch(symbol, out_path, source):
     cmd = [
         sys.executable,
@@ -837,6 +855,8 @@ def main():
                             "total_pnl": perf.get("total_pnl"),
                             "win_rate": perf.get("win_rate"),
                             "total_trades": perf.get("total_trades"),
+                            "paper_check_ok": len(paper_errors) == 0,
+                            "paper_error_count": len(paper_errors),
                             "strategy_params": {
                                 "name": strategy_name,
                                 "fast": getattr(session.strategy, "fast", None),
@@ -1013,6 +1033,7 @@ def main():
             else:
                 perf = _read_perf(os.path.join(args.output_dir, "performance.json"))
                 current_pnl = _to_float(perf.get("total_pnl"))
+                paper_check = read_paper_check_status(args.output_dir)
 
                 if (
                     tune_changed
@@ -1056,8 +1077,29 @@ def main():
                         "total_pnl": perf.get("total_pnl"),
                         "win_rate": perf.get("win_rate"),
                         "total_trades": perf.get("total_trades"),
+                        "paper_check_ok": paper_check.get("ok"),
+                        "paper_error_count": paper_check.get("error_count"),
                     }
                 )
+                if paper_check.get("ok") is False and int(paper_check.get("error_count") or 0) > 0:
+                    runtime.update(
+                        {
+                            "event": "sim_live_paper_check_failed",
+                            "mode": "sim_live",
+                            "cycle": cycle,
+                            "symbol": symbol,
+                            "paper_error_count": int(paper_check.get("error_count") or 0),
+                        }
+                    )
+                    alert.send_event(
+                        event="sim_live_paper_check_failed",
+                        level="ERROR",
+                        message=f"cycle={cycle} symbol={symbol}",
+                        data={
+                            "error_count": int(paper_check.get("error_count") or 0),
+                            "errors": (paper_check.get("errors") or [])[:5],
+                        },
+                    )
                 max_dd = _to_float(perf.get("max_drawdown"))
                 threshold = get_drawdown_alert_threshold(cfg)
                 if threshold is not None and max_dd is not None:
