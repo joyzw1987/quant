@@ -249,6 +249,15 @@ def validate_config(config, mode="paper"):
         if _is_number(warn_missing_ratio) and _is_number(max_missing_ratio) and warn_missing_ratio > max_missing_ratio:
             push_error("data_quality.warn_missing_ratio must be <= data_quality.max_missing_ratio.")
 
+    paper_check = config.get("paper_check", {})
+    if paper_check:
+        enabled = paper_check.get("enabled")
+        strict = paper_check.get("strict")
+        if enabled is not None and not isinstance(enabled, bool):
+            push_error("paper_check.enabled must be true or false.")
+        if strict is not None and not isinstance(strict, bool):
+            push_error("paper_check.strict must be true or false.")
+
     portfolio = config.get("portfolio", {})
     if portfolio:
         max_corr = portfolio.get("max_corr")

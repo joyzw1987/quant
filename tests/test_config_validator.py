@@ -61,6 +61,12 @@ class ConfigValidatorTest(unittest.TestCase):
         errors, _ = validate_config(cfg, mode="paper")
         self.assertFalse(any("data_quality." in e for e in errors))
 
+    def test_paper_check_invalid(self):
+        cfg = self._load()
+        cfg["paper_check"]["strict"] = "yes"
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("paper_check.strict" in e for e in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

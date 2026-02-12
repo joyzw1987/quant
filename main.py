@@ -19,6 +19,7 @@ from engine.risk import RiskManager
 from engine.runtime_state import RuntimeState
 from engine.strategy_factory import create_strategy
 from engine.strategy_state import StrategyState
+from paper_consistency_check import check_trades
 
 
 def load_config(path="config.json"):
@@ -313,6 +314,24 @@ def main(symbol_override=None, output_dir="output"):
             ensure_ascii=False,
             indent=2,
         )
+
+    paper_check_cfg = config.get("paper_check", {})
+    if paper_check_cfg.get("enabled", True):
+        trades_path = os.path.join(output_dir, "trades.csv")
+        paper_errors = check_trades(trades_path)
+        if paper_errors:
+            for err in paper_errors:
+                logger.log(f"[PAPER_CHECK][ERROR] {err}")
+            alert.send_event(
+                event="paper_consistency_failed",
+                level="ERROR",
+                message=f"symbol={symbol} paper consistency check failed",
+                data={"errors": paper_errors},
+            )
+            if paper_check_cfg.get("strict", False):
+                raise SystemExit("Paper consistency check failed.")
+        else:
+            logger.log("[PAPER_CHECK] PASSED")
 
     dd_alert_threshold = config.get("monitor", {}).get("drawdown_alert_threshold")
     if dd_alert_threshold is not None:

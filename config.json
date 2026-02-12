@@ -194,6 +194,10 @@
                          "max_missing_ratio":  null,
                          "warn_missing_ratio":  0.2
                      },
+    "paper_check":  {
+                        "enabled":  true,
+                        "strict":  false
+                    },
     "research_cycle":  {
                            "enabled":  false,
                            "max_days":  120,
