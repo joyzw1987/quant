@@ -54,6 +54,9 @@ class _DummyCtpApi:
         # Dummy adapter keeps flat position by default.
         return []
 
+    def query_account(self):
+        return {"balance": 1000000.0, "available": 1000000.0}
+
     def query_orders(self):
         return list(self.orders.values())
 

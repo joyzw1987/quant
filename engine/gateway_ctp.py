@@ -60,6 +60,9 @@ class CtpMarketDataGateway(GatewayBase):
     def query_positions(self, *args, **kwargs):
         return []
 
+    def query_account(self, *args, **kwargs):
+        return {}
+
 
 class CtpTradeGateway(GatewayBase):
     def __init__(self, api=None):
@@ -158,3 +161,14 @@ class CtpTradeGateway(GatewayBase):
         except Exception as exc:
             self.last_error = str(exc)
             return self.order_state.all_orders()
+
+    def query_account(self):
+        try:
+            if self.api and hasattr(self.api, "query_account"):
+                account = self.api.query_account()
+                if isinstance(account, dict):
+                    return account
+            return {}
+        except Exception as exc:
+            self.last_error = str(exc)
+            return {}

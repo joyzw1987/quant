@@ -32,6 +32,9 @@ class PaperMarketDataGateway(GatewayBase):
     def query_positions(self, *args, **kwargs):
         return []
 
+    def query_account(self, *args, **kwargs):
+        return {}
+
 
 class PaperTradeGateway(GatewayBase):
     def __init__(self, execution):
@@ -66,3 +69,6 @@ class PaperTradeGateway(GatewayBase):
 
     def query_positions(self):
         return []
+
+    def query_account(self):
+        return {}

@@ -19,3 +19,6 @@ class GatewayBase:
 
     def query_positions(self, *args, **kwargs):
         raise NotImplementedError
+
+    def query_account(self, *args, **kwargs):
+        raise NotImplementedError
