@@ -210,12 +210,20 @@ def main(symbol_override=None, output_dir="output"):
     max_trades_per_day = config["backtest"]["max_trades_per_day"]
 
     def update_runtime(extra=None):
+        strategy_params = {
+            "name": getattr(strategy, "name", strategy_cfg.get("name")),
+            "fast": getattr(strategy, "fast", strategy_cfg.get("fast")),
+            "slow": getattr(strategy, "slow", strategy_cfg.get("slow")),
+            "mode": getattr(strategy, "mode", strategy_cfg.get("mode")),
+            "min_diff": getattr(strategy, "min_diff", strategy_cfg.get("min_diff")),
+        }
         payload = {
             "symbol": symbol,
             "capital": capital,
             "position": execution.position,
             "trades": len(execution.trades),
             "halt_reason": risk.halt_reason,
+            "strategy_params": strategy_params,
         }
         if extra:
             payload.update(extra)

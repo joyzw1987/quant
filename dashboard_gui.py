@@ -68,6 +68,9 @@ class MonitorUI:
         self.var_portfolio_symbols = tk.StringVar(value="-")
         self.var_portfolio_method = tk.StringVar(value="-")
         self.var_portfolio_rebalance = tk.StringVar(value="-")
+        self.var_halt_reason = tk.StringVar(value="-")
+        self.var_gate_reason = tk.StringVar(value="-")
+        self.var_strategy_params = tk.StringVar(value="-")
 
         self._build_layout()
         self._update_policy_text()
@@ -126,6 +129,9 @@ class MonitorUI:
         self._stat_cell(stats, "组合品种", self.var_portfolio_symbols, 2, 2)
         self._stat_cell(stats, "权重方式", self.var_portfolio_method, 2, 3)
         self._stat_cell(stats, "再平衡次数", self.var_portfolio_rebalance, 2, 4)
+        self._stat_cell(stats, "风控状态", self.var_halt_reason, 3, 0)
+        self._stat_cell(stats, "门槛结果", self.var_gate_reason, 3, 1)
+        self._stat_cell(stats, "当前参数", self.var_strategy_params, 3, 2)
 
         mid = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         mid.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -295,6 +301,16 @@ class MonitorUI:
         self.var_capital.set(_format_num(runtime.get("capital")))
         self.var_position.set(self._position_text(runtime.get("position")))
         self.var_trades.set(str(runtime.get("trades", 0)))
+        self.var_halt_reason.set(str(runtime.get("halt_reason") or "-"))
+        self.var_gate_reason.set(str(runtime.get("gate_reason") or "-"))
+        params = runtime.get("strategy_params") or {}
+        if isinstance(params, dict) and params:
+            text = (
+                f"{params.get('name','-')} "
+                f"f={params.get('fast','-')} s={params.get('slow','-')} "
+                f"m={params.get('mode','-')} d={params.get('min_diff','-')}"
+            )
+            self.var_strategy_params.set(text)
 
         ts = runtime.get("updated_at", "")
         if ts and ts != self.last_runtime_ts:

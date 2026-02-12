@@ -112,6 +112,8 @@ class BacktestEngineTest(unittest.TestCase):
 
         self.assertTrue(any("last_step" in s for s in snapshots))
         self.assertTrue(any(s.get("event") == "new_day" for s in snapshots))
+        self.assertTrue(any(s.get("event") == "gate_block" for s in snapshots))
+        self.assertTrue(any(s.get("gate_reason") == "NO_SIGNAL" for s in snapshots))
 
 
 if __name__ == "__main__":

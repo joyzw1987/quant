@@ -1,4 +1,5 @@
 ﻿import os
+from datetime import datetime
 
 from engine.data_policy import validate_data_policy
 
@@ -22,6 +23,16 @@ def _is_time_string(value):
     hour = int(parts[0])
     minute = int(parts[1])
     return 0 <= hour <= 23 and 0 <= minute <= 59
+
+
+def _is_date_string(value):
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+        return True
+    except Exception:
+        return False
 
 
 def validate_config(config, mode="paper"):
@@ -101,6 +112,29 @@ def validate_config(config, mode="paper"):
             push_error("strategy.trade_start must be HH:MM or empty.")
         if not _is_time_string(strategy.get("trade_end", "")):
             push_error("strategy.trade_end must be HH:MM or empty.")
+
+    market_hours = config.get("market_hours", {})
+    if market_hours:
+        for key in ("special_closures", "special_sessions"):
+            items = market_hours.get(key)
+            if items is None:
+                continue
+            if not isinstance(items, list):
+                push_error(f"market_hours.{key} must be a list.")
+                continue
+            for idx, item in enumerate(items):
+                if not isinstance(item, dict):
+                    push_error(f"market_hours.{key}[{idx}] must be an object.")
+                    continue
+                date = item.get("date")
+                if not _is_date_string(date):
+                    push_error(f"market_hours.{key}[{idx}].date must be YYYY-MM-DD.")
+                start = item.get("start")
+                end = item.get("end")
+                if start is not None and not _is_time_string(start):
+                    push_error(f"market_hours.{key}[{idx}].start must be HH:MM.")
+                if end is not None and not _is_time_string(end):
+                    push_error(f"market_hours.{key}[{idx}].end must be HH:MM.")
 
     if mode == "ctp":
         ctp = config.get("ctp", {})
@@ -213,5 +247,3 @@ def report_validation(errors, warnings):
         for item in errors:
             print(f"[ERROR] {item}")
         raise SystemExit("Config validation failed.")
-
-

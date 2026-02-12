@@ -20,6 +20,7 @@ def run_backtest(
     equity_curve = []
     daily_trade_count = 0
     current_date = None
+    last_gate_reason = None
 
     def append_equity(step, bar_time):
         equity_curve.append(
@@ -47,8 +48,24 @@ def run_backtest(
                     "position": execution.position,
                     "trades": len(execution.trades),
                     "halt_reason": risk.halt_reason,
+                    "gate_reason": last_gate_reason,
                 }
             )
+
+        def block_by(reason):
+            nonlocal last_gate_reason
+            last_gate_reason = reason
+            if runtime_update:
+                runtime_update(
+                    {
+                        "event": "gate_block",
+                        "last_step": step,
+                        "last_bar_time": bar["datetime"],
+                        "symbol": symbol,
+                        "gate_reason": reason,
+                        "halt_reason": risk.halt_reason,
+                    }
+                )
 
         if current_date is None or bar_date != current_date:
             current_date = bar_date
@@ -68,13 +85,16 @@ def run_backtest(
                 )
 
         if not schedule_checker(bar_dt, schedule):
+            block_by("SCHEDULE_CLOSED")
             append_equity(step, bar["datetime"])
             continue
 
         if trade_start and bar_dt.time() < trade_start:
+            block_by("BEFORE_TRADE_START")
             append_equity(step, bar["datetime"])
             continue
         if trade_end and bar_dt.time() > trade_end:
+            block_by("AFTER_TRADE_END")
             append_equity(step, bar["datetime"])
             continue
 
@@ -103,29 +123,35 @@ def run_backtest(
             continue
 
         if daily_trade_count >= max_trades_per_day:
+            block_by("MAX_TRADES_PER_DAY")
             append_equity(step, bar["datetime"])
             continue
 
         if not risk.allow_trade():
+            block_by("RISK_NOT_ALLOWED")
             append_equity(step, bar["datetime"])
             continue
 
         if atr is not None and atr < strategy_cfg.get("min_atr", 0.0):
+            block_by("MIN_ATR")
             append_equity(step, bar["datetime"])
             continue
 
         prices = [b["close"] for b in bars[: step + 1]]
         signal = strategy.generate_signal(prices, step=step)
         if signal == 0:
+            block_by("NO_SIGNAL")
             append_equity(step, bar["datetime"])
             continue
 
         position_size = risk.calc_position_size(capital, price, atr)
         if position_size <= 0:
+            block_by("POSITION_SIZE_ZERO")
             append_equity(step, bar["datetime"])
             continue
 
         if hasattr(risk, "can_open_order") and not risk.can_open_order(position_size):
+            block_by("RISK_ORDER_LIMIT")
             append_equity(step, bar["datetime"])
             continue
 
@@ -139,6 +165,7 @@ def run_backtest(
             bar_time=bar["datetime"],
         )
         if opened:
+            last_gate_reason = None
             daily_trade_count += 1
             if hasattr(risk, "record_order"):
                 risk.record_order()

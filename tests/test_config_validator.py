@@ -30,7 +30,18 @@ class ConfigValidatorTest(unittest.TestCase):
         errors, _ = validate_config(cfg, mode="paper")
         self.assertFalse(any("portfolio." in e for e in errors))
 
+    def test_market_hours_special_date_invalid(self):
+        cfg = self._load()
+        cfg["market_hours"]["special_closures"] = [{"date": "2026/01/01", "start": "09:00", "end": "10:00"}]
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("market_hours.special_closures[0].date" in e for e in errors))
+
+    def test_market_hours_special_time_invalid(self):
+        cfg = self._load()
+        cfg["market_hours"]["special_sessions"] = [{"date": "2026-01-01", "start": "25:00", "end": "10:00"}]
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("market_hours.special_sessions[0].start" in e for e in errors))
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -102,7 +102,13 @@
 
                                                     ],
                                           "file":  "data/holidays.txt"
-                                      }
+                                      },
+                         "special_closures":  [
+
+                                              ],
+                         "special_sessions":  [
+
+                                              ]
                      },
     "plot":  {
                  "live":  true
