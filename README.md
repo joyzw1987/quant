@@ -388,11 +388,15 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   "enabled": true,
   "min_rows": 200,
   "max_missing_bars": null,
+  "max_duplicates": null,
   "max_missing_ratio": null,
-  "warn_missing_ratio": 0.2
+  "warn_missing_ratio": 0.2,
+  "max_jump_ratio": null,
+  "min_coverage_ratio": null,
+  "warn_coverage_ratio": null
 }
 ```
-说明：缺口统计会按 `market_hours` 交易时段计算（午休/闭市分钟不计入缺口），减少误报。
+说明：缺口统计会按 `market_hours` 交易时段计算（午休/闭市分钟不计入缺口），减少误报；同时输出 `duplicates`、`max_jump_ratio`、`coverage_ratio`，可对重复K线、异常跳点、时段覆盖率做闸门控制。
 
 Paper 一致性校验（回测结束自动执行）：
 ```json

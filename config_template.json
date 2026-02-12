@@ -179,8 +179,12 @@
                          "enabled":  true,
                          "min_rows":  200,
                          "max_missing_bars":  null,
+                         "max_duplicates":  null,
                          "max_missing_ratio":  null,
-                         "warn_missing_ratio":  0.2
+                         "warn_missing_ratio":  0.2,
+                         "max_jump_ratio":  null,
+                         "min_coverage_ratio":  null,
+                         "warn_coverage_ratio":  null
                      },
     "paper_check":  {
                         "enabled":  true,

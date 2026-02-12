@@ -37,23 +37,47 @@ class DataEngine:
         return [b["close"] for b in self.get_bars(symbol)]
 
     def validate_bars(self, bars, schedule=None):
+        raw_total = len(bars)
         report = {
-            "total": len(bars),
+            "raw_total": raw_total,
+            "total": 0,
             "missing": 0,
+            "duplicates": 0,
+            "max_jump_ratio": 0.0,
+            "coverage_ratio": 1.0,
             "start": bars[0]["datetime"] if bars else "",
             "end": bars[-1]["datetime"] if bars else "",
         }
         if not bars:
-            report["missing"] = 0
             return report
 
-        # Count missing bars by minute. When schedule is provided, only count
-        # minutes expected to be open (ignore lunch breaks and closed sessions).
+        # Deduplicate by datetime for stable gap/jump analysis.
+        seen = set()
+        unique = []
+        duplicate_count = 0
+        for b in bars:
+            dt = b.get("datetime")
+            if dt in seen:
+                duplicate_count += 1
+                continue
+            seen.add(dt)
+            unique.append(b)
+        report["duplicates"] = duplicate_count
+        report["total"] = len(unique)
+        if not unique:
+            report["coverage_ratio"] = 0.0
+            return report
+
         try:
-            prev = datetime.strptime(bars[0]["datetime"], "%Y-%m-%d %H:%M")
+            parsed = []
+            for b in unique:
+                parsed.append((datetime.strptime(b["datetime"], "%Y-%m-%d %H:%M"), float(b["close"])))
+            parsed.sort(key=lambda x: x[0])
+
+            prev, prev_close = parsed[0]
             miss = 0
-            for b in bars[1:]:
-                cur = datetime.strptime(b["datetime"], "%Y-%m-%d %H:%M")
+            max_jump = 0.0
+            for cur, cur_close in parsed[1:]:
                 delta = (cur - prev).total_seconds() / 60.0
                 if delta > 1:
                     if schedule is None:
@@ -64,16 +88,32 @@ class DataEngine:
                             if is_market_open(probe, schedule):
                                 miss += 1
                             probe += timedelta(minutes=1)
+
+                if prev_close != 0:
+                    jump = abs(cur_close - prev_close) / abs(prev_close)
+                    if jump > max_jump:
+                        max_jump = jump
                 prev = cur
+                prev_close = cur_close
+
             report["missing"] = miss
+            report["max_jump_ratio"] = max_jump
+            expected_open = report["total"] + report["missing"]
+            report["coverage_ratio"] = (float(report["total"]) / float(expected_open)) if expected_open > 0 else 1.0
         except Exception:
             report["missing"] = 0
+            report["max_jump_ratio"] = 0.0
+            report["coverage_ratio"] = 1.0
         return report
 
     def write_data_report(self, report, path):
         lines = [
+            f"raw_total={report.get('raw_total', report.get('total', 0))}",
             f"total={report.get('total', 0)}",
             f"missing={report.get('missing', 0)}",
+            f"duplicates={report.get('duplicates', 0)}",
+            f"max_jump_ratio={report.get('max_jump_ratio', 0.0)}",
+            f"coverage_ratio={report.get('coverage_ratio', 1.0)}",
             f"start={report.get('start', '')}",
             f"end={report.get('end', '')}",
         ]

@@ -286,9 +286,17 @@ def validate_config(config, mode="paper"):
         if max_missing_bars is not None and (not isinstance(max_missing_bars, int) or max_missing_bars < 0):
             push_error("data_quality.max_missing_bars must be an integer >= 0.")
 
+        max_duplicates = data_quality.get("max_duplicates")
+        if max_duplicates is not None and (not isinstance(max_duplicates, int) or max_duplicates < 0):
+            push_error("data_quality.max_duplicates must be an integer >= 0.")
+
         max_missing_ratio = data_quality.get("max_missing_ratio")
         if max_missing_ratio is not None and (not _is_number(max_missing_ratio) or max_missing_ratio < 0 or max_missing_ratio > 1):
             push_error("data_quality.max_missing_ratio must be between 0 and 1.")
+
+        max_jump_ratio = data_quality.get("max_jump_ratio")
+        if max_jump_ratio is not None and (not _is_number(max_jump_ratio) or max_jump_ratio < 0 or max_jump_ratio > 1):
+            push_error("data_quality.max_jump_ratio must be between 0 and 1.")
 
         warn_missing_ratio = data_quality.get("warn_missing_ratio")
         if warn_missing_ratio is not None and (
@@ -296,8 +304,26 @@ def validate_config(config, mode="paper"):
         ):
             push_error("data_quality.warn_missing_ratio must be between 0 and 1.")
 
+        min_coverage_ratio = data_quality.get("min_coverage_ratio")
+        if min_coverage_ratio is not None and (
+            not _is_number(min_coverage_ratio) or min_coverage_ratio < 0 or min_coverage_ratio > 1
+        ):
+            push_error("data_quality.min_coverage_ratio must be between 0 and 1.")
+
+        warn_coverage_ratio = data_quality.get("warn_coverage_ratio")
+        if warn_coverage_ratio is not None and (
+            not _is_number(warn_coverage_ratio) or warn_coverage_ratio < 0 or warn_coverage_ratio > 1
+        ):
+            push_error("data_quality.warn_coverage_ratio must be between 0 and 1.")
+
         if _is_number(warn_missing_ratio) and _is_number(max_missing_ratio) and warn_missing_ratio > max_missing_ratio:
             push_error("data_quality.warn_missing_ratio must be <= data_quality.max_missing_ratio.")
+        if (
+            _is_number(warn_coverage_ratio)
+            and _is_number(min_coverage_ratio)
+            and warn_coverage_ratio < min_coverage_ratio
+        ):
+            push_error("data_quality.warn_coverage_ratio must be >= data_quality.min_coverage_ratio.")
 
     paper_check = config.get("paper_check", {})
     if paper_check:

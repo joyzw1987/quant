@@ -67,11 +67,22 @@ class ConfigValidatorTest(unittest.TestCase):
             "enabled": True,
             "min_rows": 100,
             "max_missing_bars": 10,
+            "max_duplicates": 0,
             "max_missing_ratio": 0.1,
             "warn_missing_ratio": 0.05,
+            "max_jump_ratio": 0.1,
+            "min_coverage_ratio": 0.8,
+            "warn_coverage_ratio": 0.9,
         }
         errors, _ = validate_config(cfg, mode="paper")
         self.assertFalse(any("data_quality." in e for e in errors))
+
+    def test_data_quality_coverage_relation_invalid(self):
+        cfg = self._load()
+        cfg["data_quality"]["min_coverage_ratio"] = 0.9
+        cfg["data_quality"]["warn_coverage_ratio"] = 0.8
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("data_quality.warn_coverage_ratio must be >=" in e for e in errors))
 
     def test_paper_check_invalid(self):
         cfg = self._load()

@@ -38,6 +38,22 @@ class DataQualityGateTest(unittest.TestCase):
         self.assertTrue(any("MISSING_RATIO_EXCEEDED" in e for e in errors))
         self.assertTrue(any("MISSING_RATIO_WARN" in w for w in warnings))
 
+    def test_gate_block_on_duplicates_jump_and_coverage(self):
+        report = {"total": 100, "missing": 20, "duplicates": 3, "max_jump_ratio": 0.12, "coverage_ratio": 0.83}
+        cfg = {
+            "enabled": True,
+            "max_duplicates": 0,
+            "max_jump_ratio": 0.08,
+            "min_coverage_ratio": 0.9,
+            "warn_coverage_ratio": 0.95,
+        }
+        ok, errors, warnings = evaluate_data_quality(report, cfg)
+        self.assertFalse(ok)
+        self.assertTrue(any("DUPLICATES_EXCEEDED" in e for e in errors))
+        self.assertTrue(any("JUMP_RATIO_EXCEEDED" in e for e in errors))
+        self.assertTrue(any("COVERAGE_TOO_LOW" in e for e in errors))
+        self.assertTrue(any("COVERAGE_WARN" in w for w in warnings))
+
 
 if __name__ == "__main__":
     unittest.main()
