@@ -42,6 +42,18 @@ class ConfigValidatorTest(unittest.TestCase):
         errors, _ = validate_config(cfg, mode="paper")
         self.assertTrue(any("market_hours.special_sessions[0].start" in e for e in errors))
 
+    def test_market_hours_extra_workdays_invalid(self):
+        cfg = self._load()
+        cfg["market_hours"]["extra_workdays"] = ["2026/01/01"]
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("market_hours.extra_workdays[0]" in e for e in errors))
+
+    def test_market_hours_holidays_dates_invalid(self):
+        cfg = self._load()
+        cfg["market_hours"]["holidays"] = {"dates": ["2026/01/01"]}
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("market_hours.holidays.dates[0]" in e for e in errors))
+
     def test_data_quality_warn_greater_than_max_invalid(self):
         cfg = self._load()
         cfg["data_quality"]["warn_missing_ratio"] = 0.2

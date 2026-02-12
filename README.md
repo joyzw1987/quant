@@ -340,6 +340,7 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
     "dates": [],
     "file": "data/holidays.txt"
   },
+  "extra_workdays": ["2026-10-11"],
   "special_closures": [
     {"date": "2026-10-10", "start": "09:00", "end": "10:00", "reason": "临时停盘"},
     {"date": "2026-10-11", "reason": "全日休市"}
@@ -349,7 +350,7 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   ]
 }
 ```
-说明：`sessions` 支持跨午夜时段（`start > end`），例如 `21:00-02:30`。调度器会自动识别“前一交易日夜盘延续到次日凌晨”的可交易窗口。
+说明：`sessions` 支持跨午夜时段（`start > end`），例如 `21:00-02:30`。调度器会自动识别“前一交易日夜盘延续到次日凌晨”的可交易窗口。`extra_workdays` 可把周末/节假日临时设为交易日（用于调休场景）。
 
 成本模型（按时段区分滑点/手续费倍率/成交率）：
 ```json

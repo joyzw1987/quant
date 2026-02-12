@@ -86,6 +86,30 @@ class MarketSchedulerTest(unittest.TestCase):
         nxt = next_market_open(datetime(2026, 2, 14, 12, 0), schedule)
         self.assertEqual(nxt.strftime("%Y-%m-%d %H:%M"), "2026-02-16 21:00")
 
+    def test_extra_workdays_enable_weekend_sessions(self):
+        cfg = {
+            "market_hours": {
+                "sessions": [{"start": "09:00", "end": "11:30"}],
+                "weekdays": [1, 2, 3, 4, 5],
+                "holidays": {"dates": []},
+                "extra_workdays": ["2026-02-14"],
+            }
+        }
+        schedule = load_market_schedule(cfg)
+        self.assertTrue(is_market_open(datetime(2026, 2, 14, 9, 30), schedule))
+
+    def test_holiday_can_be_overridden_by_extra_workday(self):
+        cfg = {
+            "market_hours": {
+                "sessions": [{"start": "09:00", "end": "11:30"}],
+                "weekdays": [1, 2, 3, 4, 5],
+                "holidays": {"dates": ["2026-02-14"]},
+                "extra_workdays": ["2026-02-14"],
+            }
+        }
+        schedule = load_market_schedule(cfg)
+        self.assertTrue(is_market_open(datetime(2026, 2, 14, 9, 30), schedule))
+
 
 if __name__ == "__main__":
     unittest.main()

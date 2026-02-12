@@ -61,6 +61,11 @@ def load_market_schedule(config):
         if isinstance(d, str) and d:
             holidays.add(d)
 
+    extra_workdays = set()
+    for d in market_cfg.get("extra_workdays") or []:
+        if isinstance(d, str) and d:
+            extra_workdays.add(d)
+
     holiday_file = holidays_cfg.get("file")
     if isinstance(holiday_file, str) and holiday_file:
         try:
@@ -92,6 +97,7 @@ def load_market_schedule(config):
         "sessions": sessions,
         "weekdays": weekdays,
         "holidays": holidays,
+        "extra_workdays": extra_workdays,
         "special_sessions": special_sessions,
         "full_closures": full_closures,
         "partial_closures": partial_closures,
@@ -117,12 +123,22 @@ def _sessions_for_date(day, schedule):
 
 def _day_openable(day, schedule):
     date_str = day.strftime("%Y-%m-%d")
+    is_extra_workday = date_str in schedule.get("extra_workdays", set())
     if date_str in schedule.get("full_closures", set()):
         return False
-    if date_str in schedule.get("holidays", set()) and date_str not in schedule.get("special_sessions", {}):
+    if (
+        date_str in schedule.get("holidays", set())
+        and date_str not in schedule.get("special_sessions", {})
+        and not is_extra_workday
+    ):
         return False
     wd = day.weekday() + 1
-    if schedule.get("weekdays") and wd not in schedule["weekdays"] and date_str not in schedule.get("special_sessions", {}):
+    if (
+        schedule.get("weekdays")
+        and wd not in schedule["weekdays"]
+        and date_str not in schedule.get("special_sessions", {})
+        and not is_extra_workday
+    ):
         return False
     return True
 

@@ -122,6 +122,29 @@ def validate_config(config, mode="paper"):
 
     market_hours = config.get("market_hours", {})
     if market_hours:
+        holidays_cfg = market_hours.get("holidays")
+        if holidays_cfg is not None and not isinstance(holidays_cfg, dict):
+            push_error("market_hours.holidays must be an object.")
+        elif isinstance(holidays_cfg, dict):
+            holiday_dates = holidays_cfg.get("dates")
+            if holiday_dates is not None and not isinstance(holiday_dates, list):
+                push_error("market_hours.holidays.dates must be a list.")
+            if isinstance(holiday_dates, list):
+                for idx, date in enumerate(holiday_dates):
+                    if not _is_date_string(date):
+                        push_error(f"market_hours.holidays.dates[{idx}] must be YYYY-MM-DD.")
+            holiday_file = holidays_cfg.get("file")
+            if holiday_file is not None and not isinstance(holiday_file, str):
+                push_error("market_hours.holidays.file must be a string.")
+
+        extra_workdays = market_hours.get("extra_workdays")
+        if extra_workdays is not None and not isinstance(extra_workdays, list):
+            push_error("market_hours.extra_workdays must be a list.")
+        if isinstance(extra_workdays, list):
+            for idx, date in enumerate(extra_workdays):
+                if not _is_date_string(date):
+                    push_error(f"market_hours.extra_workdays[{idx}] must be YYYY-MM-DD.")
+
         for key in ("special_closures", "special_sessions"):
             items = market_hours.get(key)
             if items is None:
