@@ -42,6 +42,25 @@ class ConfigValidatorTest(unittest.TestCase):
         errors, _ = validate_config(cfg, mode="paper")
         self.assertTrue(any("market_hours.special_sessions[0].start" in e for e in errors))
 
+    def test_data_quality_warn_greater_than_max_invalid(self):
+        cfg = self._load()
+        cfg["data_quality"]["warn_missing_ratio"] = 0.2
+        cfg["data_quality"]["max_missing_ratio"] = 0.1
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("data_quality.warn_missing_ratio must be <=" in e for e in errors))
+
+    def test_data_quality_valid(self):
+        cfg = self._load()
+        cfg["data_quality"] = {
+            "enabled": True,
+            "min_rows": 100,
+            "max_missing_bars": 10,
+            "max_missing_ratio": 0.1,
+            "warn_missing_ratio": 0.05,
+        }
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertFalse(any("data_quality." in e for e in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

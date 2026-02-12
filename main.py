@@ -10,6 +10,7 @@ from engine.backtest_engine import run_backtest
 from engine.config_validator import report_validation, validate_config
 from engine.cost_model import build_cost_model
 from engine.data_engine import DataEngine
+from engine.data_quality_gate import evaluate_data_quality
 from engine.execution_sim import SimExecution
 from engine.logger import Logger
 from engine.perf_report import build_monthly_metrics, build_return_distribution, build_weekly_metrics
@@ -136,6 +137,13 @@ def main(symbol_override=None, output_dir="output"):
     bars = data.get_bars(symbol)
     data_report = data.validate_bars(bars)
     data.write_data_report(data_report, os.path.join(output_dir, "data_quality_report.txt"))
+    ok, dq_errors, dq_warnings = evaluate_data_quality(data_report, config.get("data_quality", {}))
+    for w in dq_warnings:
+        print(f"[WARN] {w}")
+    if not ok:
+        for e in dq_errors:
+            print(f"[ERROR] {e}")
+        raise SystemExit("Data quality gate blocked run.")
 
     strategy_cfg = config["strategy"]
     strategy = create_strategy(strategy_cfg)

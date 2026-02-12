@@ -10,6 +10,7 @@ from datetime import datetime
 from engine.alert_manager import AlertManager
 from engine.config_validator import report_validation, validate_config
 from engine.cost_model import build_cost_model
+from engine.data_quality_gate import evaluate_data_quality
 from engine.execution_sim import SimExecution
 from engine.market_scheduler import is_market_open, load_market_schedule, next_market_open
 from engine.risk import RiskManager
@@ -611,11 +612,60 @@ def main():
             if newest_bar_time:
                 last_bar_time_seen = newest_bar_time
 
+            bars_for_quality = _read_bars(data_out)
+            dq_report = {
+                "total": len(bars_for_quality),
+                "missing": 0,
+                "start": bars_for_quality[0]["datetime"] if bars_for_quality else "",
+                "end": bars_for_quality[-1]["datetime"] if bars_for_quality else "",
+            }
+            ok_dq, dq_errors, dq_warnings = evaluate_data_quality(dq_report, cfg.get("data_quality", {}))
+            for w in dq_warnings:
+                print(f"[SIM_LIVE][WARN] {w}")
+            if not ok_dq:
+                runtime.update(
+                    {
+                        "event": "sim_live_data_quality_block",
+                        "mode": "sim_live",
+                        "cycle": cycle,
+                        "symbol": symbol,
+                        "errors": dq_errors,
+                    }
+                )
+                alert.send_event(
+                    event="sim_live_data_quality_block",
+                    level="ERROR",
+                    message=f"cycle={cycle} symbol={symbol}",
+                    data={"errors": dq_errors},
+                )
+                print(f"[SIM_LIVE] cycle={cycle} data quality blocked: {dq_errors}")
+                if args.max_cycles > 0 and cycle >= args.max_cycles:
+                    runtime.update(
+                        {
+                            "event": "sim_live_finished",
+                            "mode": "sim_live",
+                            "cycle": cycle,
+                            "symbol": symbol,
+                        }
+                    )
+                    break
+                runtime.update(
+                    {
+                        "event": "sim_live_sleeping",
+                        "mode": "sim_live",
+                        "cycle": cycle,
+                        "symbol": symbol,
+                        "sleep_sec": interval_sec,
+                    }
+                )
+                time.sleep(interval_sec)
+                continue
+
             if not tune_cfg["enabled"]:
                 if session is None:
                     session = ContinuousPaperSession(cfg=cfg, symbol=symbol, output_dir=args.output_dir)
 
-                bars = _read_bars(data_out)
+                bars = bars_for_quality
                 start_idx = session.last_processed_idx + 1
                 if start_idx >= len(bars):
                     runtime.update(

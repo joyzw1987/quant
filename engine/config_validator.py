@@ -222,6 +222,33 @@ def validate_config(config, mode="paper"):
         if not _is_number(threshold) or threshold < 0:
             push_error("monitor.drawdown_alert_threshold must be >= 0.")
 
+    data_quality = config.get("data_quality", {})
+    if data_quality:
+        enabled = data_quality.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            push_error("data_quality.enabled must be true or false.")
+
+        min_rows = data_quality.get("min_rows")
+        if min_rows is not None and (not isinstance(min_rows, int) or min_rows < 1):
+            push_error("data_quality.min_rows must be an integer >= 1.")
+
+        max_missing_bars = data_quality.get("max_missing_bars")
+        if max_missing_bars is not None and (not isinstance(max_missing_bars, int) or max_missing_bars < 0):
+            push_error("data_quality.max_missing_bars must be an integer >= 0.")
+
+        max_missing_ratio = data_quality.get("max_missing_ratio")
+        if max_missing_ratio is not None and (not _is_number(max_missing_ratio) or max_missing_ratio < 0 or max_missing_ratio > 1):
+            push_error("data_quality.max_missing_ratio must be between 0 and 1.")
+
+        warn_missing_ratio = data_quality.get("warn_missing_ratio")
+        if warn_missing_ratio is not None and (
+            not _is_number(warn_missing_ratio) or warn_missing_ratio < 0 or warn_missing_ratio > 1
+        ):
+            push_error("data_quality.warn_missing_ratio must be between 0 and 1.")
+
+        if _is_number(warn_missing_ratio) and _is_number(max_missing_ratio) and warn_missing_ratio > max_missing_ratio:
+            push_error("data_quality.warn_missing_ratio must be <= data_quality.max_missing_ratio.")
+
     portfolio = config.get("portfolio", {})
     if portfolio:
         max_corr = portfolio.get("max_corr")
