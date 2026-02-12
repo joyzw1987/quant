@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta
 
 
 def _run_step(name, cmd):
@@ -20,18 +21,47 @@ def _run_step(name, cmd):
     }
 
 
+def _ensure_data_file(path, require_existing=False):
+    if os.path.exists(path):
+        return False
+    if require_existing:
+        raise SystemExit(f"data file not found: {path}")
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    start = datetime(2026, 1, 2, 9, 0)
+    price = 2800.0
+    lines = ["datetime,open,high,low,close,volume"]
+    for i in range(1600):
+        dt = start + timedelta(minutes=i)
+        if dt.hour < 9 or dt.hour > 15:
+            continue
+        drift = ((i % 23) - 11) * 0.15
+        open_p = price
+        close_p = max(100.0, price + drift)
+        high_p = max(open_p, close_p) + 0.6
+        low_p = min(open_p, close_p) - 0.6
+        volume = 100 + (i % 30) * 3
+        lines.append(
+            f"{dt.strftime('%Y-%m-%d %H:%M')},{open_p:.2f},{high_p:.2f},{low_p:.2f},{close_p:.2f},{volume}"
+        )
+        price = close_p
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="End-to-end regression: OOS -> backtest -> reports")
     parser.add_argument("--symbol", default="M2609")
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--quick", action="store_true")
+    parser.add_argument("--require-existing-data", action="store_true")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
     out_path = os.path.join(args.output_dir, "e2e_regression_report.json")
     data_path = os.path.join("data", f"{args.symbol}.csv")
-    if not os.path.exists(data_path):
-        raise SystemExit(f"data file not found: {data_path}")
+    generated_data = _ensure_data_file(data_path, require_existing=args.require_existing_data)
 
     steps = []
     strict_cmd = [
@@ -45,9 +75,9 @@ def main():
 
     steps.append(_run_step("strict_oos", strict_cmd))
     steps.append(_run_step("backtest_main", [sys.executable, "main.py", "--symbol", args.symbol, "--output-dir", args.output_dir]))
-    steps.append(_run_step("weekly_report", [sys.executable, "daily_weekly_report.py"]))
-    steps.append(_run_step("monthly_report", [sys.executable, "monthly_report.py"]))
-    steps.append(_run_step("single_report", [sys.executable, "single_report.py"]))
+    steps.append(_run_step("weekly_report", [sys.executable, "daily_weekly_report.py", "--output-dir", args.output_dir]))
+    steps.append(_run_step("monthly_report", [sys.executable, "monthly_report.py", "--output-dir", args.output_dir]))
+    steps.append(_run_step("single_report", [sys.executable, "single_report.py", "--output-dir", args.output_dir]))
 
     required_files = [
         os.path.join(args.output_dir, "performance.json"),
@@ -62,6 +92,7 @@ def main():
     report = {
         "symbol": args.symbol,
         "quick": bool(args.quick),
+        "generated_data": generated_data,
         "ok": ok,
         "steps": steps,
         "checks": checks,
@@ -77,4 +108,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import argparse
 
 from engine.perf_report import build_monthly_metrics
 
@@ -11,8 +12,13 @@ def _read_csv(path):
 
 
 def main():
-    curve_path = os.path.join("output", "equity_curve.csv")
-    trades_path = os.path.join("output", "trades.csv")
+    parser = argparse.ArgumentParser(description="Build monthly report files")
+    parser.add_argument("--output-dir", default="output")
+    args = parser.parse_args()
+
+    out_dir = args.output_dir
+    curve_path = os.path.join(out_dir, "equity_curve.csv")
+    trades_path = os.path.join(out_dir, "trades.csv")
     if not os.path.exists(curve_path):
         raise SystemExit("equity_curve.csv not found, run main.py first")
 
@@ -20,8 +26,8 @@ def main():
     trade_rows = _read_csv(trades_path) if os.path.exists(trades_path) else []
     monthly_rows = build_monthly_metrics(equity_rows, trade_rows)
 
-    csv_path = os.path.join("output", "monthly_report.csv")
-    json_path = os.path.join("output", "monthly_report.json")
+    csv_path = os.path.join(out_dir, "monthly_report.csv")
+    json_path = os.path.join(out_dir, "monthly_report.json")
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         if monthly_rows:

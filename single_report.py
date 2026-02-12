@@ -1,12 +1,18 @@
-﻿import json
+﻿import argparse
+import json
 import os
 
 import matplotlib.pyplot as plt
 
 
 def main():
-    perf_path = os.path.join("output", "performance.json")
-    curve_path = os.path.join("output", "equity_curve.csv")
+    parser = argparse.ArgumentParser(description="Build single html report")
+    parser.add_argument("--output-dir", default="output")
+    args = parser.parse_args()
+
+    out_dir = args.output_dir
+    perf_path = os.path.join(out_dir, "performance.json")
+    curve_path = os.path.join(out_dir, "equity_curve.csv")
     if not os.path.exists(perf_path) or not os.path.exists(curve_path):
         raise SystemExit("performance.json or equity_curve.csv not found. Run main.py first.")
 
@@ -21,7 +27,7 @@ def main():
             if len(parts) >= 4:
                 equity.append(float(parts[3]))
 
-    img_path = os.path.join("output", "equity_curve.png")
+    img_path = os.path.join(out_dir, "equity_curve.png")
     if equity:
         plt.figure(figsize=(8, 3))
         plt.plot(equity)
@@ -42,7 +48,7 @@ def main():
 </html>
 """
 
-    out_path = os.path.join("output", "report.html")
+    out_path = os.path.join(out_dir, "report.html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"[REPORT] saved {out_path}")

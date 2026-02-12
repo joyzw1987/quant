@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import argparse
 
 from engine.perf_report import build_weekly_metrics
 
@@ -22,9 +23,14 @@ def _write_rows(path, rows, fallback_headers):
 
 
 def main():
-    perf_path = os.path.join("output", "performance.json")
-    curve_path = os.path.join("output", "equity_curve.csv")
-    trades_path = os.path.join("output", "trades.csv")
+    parser = argparse.ArgumentParser(description="Build daily and weekly report files")
+    parser.add_argument("--output-dir", default="output")
+    args = parser.parse_args()
+
+    out_dir = args.output_dir
+    perf_path = os.path.join(out_dir, "performance.json")
+    curve_path = os.path.join(out_dir, "equity_curve.csv")
+    trades_path = os.path.join(out_dir, "trades.csv")
     if not os.path.exists(perf_path):
         raise SystemExit("performance.json not found, run main.py first")
     if not os.path.exists(curve_path):
@@ -36,9 +42,9 @@ def main():
     trade_rows = _read_csv(trades_path) if os.path.exists(trades_path) else []
     weekly_rows = build_weekly_metrics(equity_rows, trade_rows)
 
-    daily_text_path = os.path.join("output", "daily_report.txt")
-    weekly_csv_path = os.path.join("output", "weekly_report.csv")
-    weekly_json_path = os.path.join("output", "weekly_report.json")
+    daily_text_path = os.path.join(out_dir, "daily_report.txt")
+    weekly_csv_path = os.path.join(out_dir, "weekly_report.csv")
+    weekly_json_path = os.path.join(out_dir, "weekly_report.json")
 
     with open(daily_text_path, "w", encoding="utf-8") as f:
         for key in sorted(perf.keys()):
