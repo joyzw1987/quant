@@ -35,6 +35,7 @@ class MonitorUI:
 
         self.runtime_path = os.path.join("state", "runtime_state.json")
         self.perf_path = os.path.join("output", "performance.json")
+        self.paper_check_path = os.path.join("output", "paper_check_report.json")
         self.config_path = "config.json"
         self.cfg = _read_json(self.config_path)
 
@@ -88,6 +89,7 @@ class MonitorUI:
         self.var_halt_reason = tk.StringVar(value="-")
         self.var_gate_reason = tk.StringVar(value="-")
         self.var_strategy_params = tk.StringVar(value="-")
+        self.var_paper_check = tk.StringVar(value="-")
 
         self._build_layout()
         self._update_policy_text()
@@ -172,6 +174,7 @@ class MonitorUI:
         self._stat_cell(stats, "风控状态", self.var_halt_reason, 4, 0)
         self._stat_cell(stats, "门槛结果", self.var_gate_reason, 4, 1)
         self._stat_cell(stats, "当前参数", self.var_strategy_params, 4, 2)
+        self._stat_cell(stats, "一致性校验", self.var_paper_check, 4, 3)
 
         mid = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         mid.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -509,12 +512,21 @@ class MonitorUI:
         self.var_portfolio_method.set(str(summary.get("weight_method", "-")))
         self.var_portfolio_rebalance.set(str(summary.get("rebalance_events", 0)))
 
+    def _update_from_paper_check(self):
+        report = _read_json(self.paper_check_path)
+        if not report:
+            return
+        ok = bool(report.get("ok"))
+        errors = int(report.get("error_count", 0) or 0)
+        self.var_paper_check.set("通过" if ok else f"失败({errors})")
+
     def _poll(self):
         runtime = _read_json(self.runtime_path)
         if runtime:
             self._update_from_runtime(runtime)
         self._update_from_performance()
         self._update_from_portfolio()
+        self._update_from_paper_check()
 
         if self.fetch_worker and not self.fetch_worker.is_alive() and self.btn_fetch["state"] == tk.DISABLED:
             self.btn_fetch.configure(state=tk.NORMAL)
