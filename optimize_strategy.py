@@ -5,6 +5,7 @@ from datetime import datetime
 
 from engine.data_engine import DataEngine
 from engine.backtest_eval import run_once
+from engine.param_version_store import ParamVersionStore
 from engine.strategy_state import StrategyState
 
 
@@ -148,6 +149,30 @@ def main():
                 "rsi_oversold": best_cfg["rsi_oversold"],
             }
         )
+        version = ParamVersionStore("state/param_versions.json").append(
+            symbol=config["symbol"],
+            params={
+                "fast": best_cfg["fast"],
+                "slow": best_cfg["slow"],
+                "mode": config["strategy"].get("mode"),
+                "min_diff": best_cfg["min_diff"],
+                "trend_filter": config["strategy"].get("trend_filter"),
+                "trend_window": config["strategy"].get("trend_window"),
+                "rsi_period": best_cfg["rsi_period"],
+                "rsi_overbought": best_cfg["rsi_overbought"],
+                "rsi_oversold": best_cfg["rsi_oversold"],
+            },
+            source="optimize_strategy",
+            metrics={
+                "baseline_score": baseline_score,
+                "best_score": best_score,
+                "baseline_pnl": baseline_stats["pnl"],
+                "best_pnl": best_stats["pnl"],
+            },
+            note="applied by optimize_strategy",
+        )
+    else:
+        version = None
 
     print("Optimization completed")
     print(f"baseline_score={baseline_score}")
@@ -156,6 +181,8 @@ def main():
     print(f"best_stats={best_stats}")
     print(f"best_params={best_cfg}")
     print(f"applied={apply}")
+    if version:
+        print(f"version_id={version['version_id']}")
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--start-date", default=None, help="YYYY-MM-DD")
     parser.add_argument("--end-date", default=None, help="YYYY-MM-DD")
     parser.add_argument("--max-days", type=int, default=0, help="0 means no limit")
+    parser.add_argument("--report-out", default="output/dataset_build_report.json")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -80,12 +81,30 @@ def main():
     out.to_csv(out_path, index=False, encoding="utf-8")
 
     dates = sorted(merged["trade_date"].unique())
+    report = {
+        "symbol": symbol,
+        "rows": len(out),
+        "days": len(dates),
+        "range_start": str(dates[0]),
+        "range_end": str(dates[-1]),
+        "out": out_path,
+        "raw_root": raw_root,
+    }
+    report_out = args.report_out
+    if report_out:
+        report_path = Path(report_out)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(report_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+
     print("Dataset build completed")
     print(f"symbol={symbol}")
     print(f"rows={len(out)}")
     print(f"days={len(dates)}")
     print(f"range={dates[0]} -> {dates[-1]}")
     print(f"out={out_path}")
+    if report_out:
+        print(f"report={report_out}")
 
 
 if __name__ == "__main__":

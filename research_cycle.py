@@ -29,6 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description="Automated research cycle: build -> strict OOS -> backtest")
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--max-days", type=int, default=None)
+    parser.add_argument("--min-dataset-days", type=int, default=None)
     parser.add_argument("--holdout-bars", type=int, default=None)
     parser.add_argument("--max-candidates", type=int, default=None)
     parser.add_argument("--dd-penalty", type=float, default=None)
@@ -44,6 +45,9 @@ def main():
     cycle_cfg = cfg.get("research_cycle") or {}
     symbol = args.symbol or cfg.get("symbol", "M2609")
     max_days = args.max_days if args.max_days is not None else int(cycle_cfg.get("max_days", 120))
+    min_dataset_days = (
+        args.min_dataset_days if args.min_dataset_days is not None else int(cycle_cfg.get("min_dataset_days", 60))
+    )
     holdout_bars = (
         args.holdout_bars if args.holdout_bars is not None else int(cycle_cfg.get("holdout_bars", 240))
     )
@@ -74,6 +78,7 @@ def main():
         "symbol": symbol,
         "config": {
             "max_days": max_days,
+            "min_dataset_days": min_dataset_days,
             "holdout_bars": holdout_bars,
             "max_candidates": max_candidates,
             "dd_penalty": dd_penalty,
@@ -97,6 +102,8 @@ def main():
         f"data/{symbol}.csv",
         "--max-days",
         str(max_days),
+        "--report-out",
+        "output/dataset_build_report.json",
     ]
     build_result = run_command(cmd_build)
     summary["steps"].append({"name": "build_dataset", **build_result})
@@ -108,6 +115,36 @@ def main():
         print(build_result["stdout"])
         print(build_result["stderr"])
         raise SystemExit(build_result["returncode"])
+
+    build_report = {}
+    try:
+        with open("output/dataset_build_report.json", "r", encoding="utf-8") as f:
+            build_report = json.load(f)
+    except Exception:
+        build_report = {}
+    summary["dataset_report"] = build_report
+    days = int(build_report.get("days", 0)) if build_report else 0
+    if days < min_dataset_days:
+        summary["status"] = "failed"
+        summary["failed_step"] = "dataset_coverage_gate"
+        summary["dataset_gate"] = {
+            "passed": False,
+            "days": days,
+            "min_dataset_days": min_dataset_days,
+            "reason": "dataset_days_below_threshold",
+        }
+        with open("output/research_cycle_summary.json", "w", encoding="utf-8") as f:
+            json.dump(summary, f, ensure_ascii=False, indent=2)
+        print(
+            f"[GATE] dataset coverage not enough: days={days}, "
+            f"min_dataset_days={min_dataset_days}"
+        )
+        raise SystemExit(2)
+    summary["dataset_gate"] = {
+        "passed": True,
+        "days": days,
+        "min_dataset_days": min_dataset_days,
+    }
 
     cmd_oos = [
         sys.executable,

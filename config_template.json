@@ -142,6 +142,7 @@
     "research_cycle":  {
                            "enabled":  false,
                            "max_days":  120,
+                           "min_dataset_days":  60,
                            "holdout_bars":  240,
                            "max_candidates":  400,
                            "dd_penalty":  0.4,
@@ -152,6 +153,18 @@
                            "apply_best":  true,
                            "run_backtest_after":  true
                        },
+    "scheduler":  {
+                      "enabled":  false,
+                      "task_prefix":  "Quant_M2609",
+                      "days":  "MON,TUE,WED,THU,FRI",
+                      "source":  "akshare",
+                      "fetch_times":  [
+                                          "11:35",
+                                          "15:05",
+                                          "23:05"
+                                      ],
+                      "research_time":  "23:20"
+                  },
     "auto_adjust":  {
                         "enabled":  false,
                         "adjust_every_cycles":  5,

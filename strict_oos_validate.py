@@ -5,6 +5,7 @@ from datetime import datetime
 
 from engine.data_engine import DataEngine
 from engine.backtest_eval import run_once
+from engine.param_version_store import ParamVersionStore
 
 
 def load_config(path="config.json"):
@@ -192,6 +193,29 @@ def main():
         config["strategy"] = winner_cfg
         with open("config.json", "w", encoding="utf-8") as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
+        version = ParamVersionStore("state/param_versions.json").append(
+            symbol=config["symbol"],
+            params={
+                "fast": winner_cfg.get("fast"),
+                "slow": winner_cfg.get("slow"),
+                "mode": winner_cfg.get("mode"),
+                "min_diff": winner_cfg.get("min_diff"),
+                "trend_filter": winner_cfg.get("trend_filter"),
+                "trend_window": winner_cfg.get("trend_window"),
+                "rsi_period": winner_cfg.get("rsi_period"),
+                "rsi_overbought": winner_cfg.get("rsi_overbought"),
+                "rsi_oversold": winner_cfg.get("rsi_oversold"),
+            },
+            source="strict_oos_validate",
+            metrics={
+                "baseline_holdout_score": baseline_oos_score,
+                "tuned_holdout_score": best_oos_score,
+                "score_improve": decision.get("score_improve"),
+            },
+            note="applied by strict_oos_validate",
+        )
+    else:
+        version = None
 
     report = {
         "symbol": config["symbol"],
@@ -226,6 +250,7 @@ def main():
         "decision": decision,
         "winner": winner,
         "applied": bool(args.apply_best and winner == "tuned"),
+        "version": version,
     }
     with open("output/strict_oos_report.json", "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)

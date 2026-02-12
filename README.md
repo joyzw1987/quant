@@ -62,6 +62,7 @@ python run.py --mode sim_live --source akshare --interval-sec 60 --ignore-market
 ```
 python run.py --mode research_cycle
 ```
+说明：默认包含样本覆盖门槛（`research_cycle.min_dataset_days`），当历史交易日不足时会阻断参数更新并写报告。
 
 方式 C：批量回测（多合约）
 ```
@@ -124,6 +125,10 @@ python run_update_backtest.py --symbol M2609 --days 20 --out data/M2609.csv
 ```
 python build_dataset_from_archive.py --symbol M2609 --out data/M2609.csv --max-days 120
 ```
+可输出构建报告：
+```
+python build_dataset_from_archive.py --symbol M2609 --out data/M2609.csv --max-days 120 --report-out output/dataset_build_report.json
+```
 
 方式 L：Walk-Forward 滚动验证（防过拟合）
 ```
@@ -150,6 +155,21 @@ python strict_oos_validate.py --symbol M2609 --holdout-bars 240 --max-candidates
 python research_cycle.py --symbol M2609 --max-days 120 --holdout-bars 240 --max-candidates 400 --min-holdout-trades 4 --min-score-improve 0 --require-positive-holdout
 ```
 
+方式 L-4：参数版本查看/回滚
+```
+python param_rollback.py --list --symbol M2609 --limit 20
+python param_rollback.py --version-id <version_id>
+python param_rollback.py --latest --symbol M2609
+```
+
+方式 N：Windows 定时任务（自动抓数 + 自动研究周期）
+```
+python schedule_tasks.py --action show
+python schedule_tasks.py --action install
+python schedule_tasks.py --action status
+python schedule_tasks.py --action uninstall
+```
+
 方式 M：月度收益/回撤/交易统计
 ```
 python monthly_report.py
@@ -167,6 +187,8 @@ python monthly_report.py
 - `output/strict_oos_report.json` 严格样本外验证报告
 - `output/strategy_optimization.json` 参数优化报告
 - `output/research_cycle_summary.json` 一键研究周期摘要
+- `output/dataset_build_report.json` 样本构建覆盖报告
+- `state/param_versions.json` 参数版本历史
 - `output/monthly_report.csv` 月度收益/回撤/交易统计
 - `output/monthly_report.json` 月度汇总
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
@@ -217,6 +239,7 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
 "research_cycle": {
   "enabled": false,
   "max_days": 120,
+  "min_dataset_days": 60,
   "holdout_bars": 240,
   "max_candidates": 400,
   "dd_penalty": 0.4,
@@ -226,6 +249,18 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   "require_positive_holdout": false,
   "apply_best": true,
   "run_backtest_after": true
+}
+```
+
+定时任务配置：
+```json
+"scheduler": {
+  "enabled": false,
+  "task_prefix": "Quant_M2609",
+  "days": "MON,TUE,WED,THU,FRI",
+  "source": "akshare",
+  "fetch_times": ["11:35", "15:05", "23:05"],
+  "research_time": "23:20"
 }
 ```
 

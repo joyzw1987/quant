@@ -100,6 +100,7 @@ def validate_config(config, mode="paper"):
     if cycle_cfg:
         numeric_keys = [
             "max_days",
+            "min_dataset_days",
             "holdout_bars",
             "max_candidates",
             "dd_penalty",
@@ -113,6 +114,19 @@ def validate_config(config, mode="paper"):
                 continue
             if not _is_number(value):
                 push_error(f"research_cycle.{key} must be a number.")
+
+    scheduler = config.get("scheduler", {})
+    if scheduler:
+        fetch_times = scheduler.get("fetch_times", [])
+        if fetch_times is not None and not isinstance(fetch_times, list):
+            push_error("scheduler.fetch_times must be a list.")
+        if isinstance(fetch_times, list):
+            for item in fetch_times:
+                if not _is_time_string(item):
+                    push_error(f"scheduler.fetch_times invalid HH:MM: {item}")
+        research_time = scheduler.get("research_time")
+        if research_time is not None and not _is_time_string(research_time):
+            push_error("scheduler.research_time must be HH:MM.")
 
     return errors, warnings
 
