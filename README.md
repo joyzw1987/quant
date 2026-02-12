@@ -45,11 +45,18 @@ python run.py --mode sim_gui --auto-start
 ```
 python run.py --mode sim_live --source akshare --interval-sec 60
 ```
+默认会按 `config.json` 的 `market_hours` 自动启停（非交易时段自动等待，下个开盘自动恢复）。
+
 准实时轮询模拟 + 自动修正策略：
 ```
 python run.py --mode sim_live --source akshare --interval-sec 60 --auto-adjust --adjust-every-cycles 5
 ```
 说明：自动修正默认带“变差回滚”保护，若新参数导致本轮结果差于基线，会自动恢复上一版参数并重跑。
+
+若你需要忽略交易时段（24h连续跑）：
+```
+python run.py --mode sim_live --source akshare --interval-sec 60 --ignore-market-hours
+```
 
 方式 C：批量回测（多合约）
 ```

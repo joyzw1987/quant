@@ -4,8 +4,10 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime
 
 from engine.config_validator import report_validation, validate_config
+from engine.market_scheduler import is_market_open, load_market_schedule, next_market_open
 from engine.runtime_state import RuntimeState
 from main import main as backtest_main
 
@@ -152,6 +154,7 @@ def main():
     parser.add_argument("--max-cycles", type=int, default=0, help="0 means infinite loop")
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--data-out", default=None, help="default: data/<symbol>.csv")
+    parser.add_argument("--ignore-market-hours", action="store_true", help="run even outside market sessions")
     parser.add_argument("--auto-adjust", action="store_true", help="enable automatic strategy tuning")
     parser.add_argument("--adjust-every-cycles", type=int, default=None)
     parser.add_argument("--tune-train-size", type=int, default=None)
@@ -175,14 +178,40 @@ def main():
     interval_sec = max(5, int(args.interval_sec))
     runtime = RuntimeState("state/runtime_state.json")
     tune_cfg = _normalize_tune_cfg(_resolve_tune_cfg(cfg, args))
+    schedule = load_market_schedule(cfg)
+    use_market_hours = not args.ignore_market_hours
 
     print(
         f"[SIM_LIVE] start symbol={symbol} source={args.source} interval={interval_sec}s "
-        f"max_cycles={args.max_cycles if args.max_cycles else 'infinite'} auto_adjust={tune_cfg['enabled']}"
+        f"max_cycles={args.max_cycles if args.max_cycles else 'infinite'} auto_adjust={tune_cfg['enabled']} "
+        f"use_market_hours={use_market_hours}"
     )
 
     cycle = 0
     while True:
+        if use_market_hours:
+            while True:
+                now = datetime.now()
+                if is_market_open(now, schedule):
+                    break
+                nxt = next_market_open(now, schedule)
+                wait_sec = 30
+                next_text = ""
+                if nxt is not None:
+                    wait_sec = max(5, min(300, int((nxt - now).total_seconds())))
+                    next_text = nxt.strftime("%Y-%m-%d %H:%M:%S")
+                runtime.update(
+                    {
+                        "event": "sim_live_wait_market",
+                        "mode": "sim_live",
+                        "symbol": symbol,
+                        "next_open": next_text,
+                        "sleep_sec": wait_sec,
+                    }
+                )
+                print(f"[SIM_LIVE] market closed, next_open={next_text or '-'} sleep={wait_sec}s")
+                time.sleep(wait_sec)
+
         cycle += 1
         runtime.update(
             {

@@ -42,6 +42,7 @@ def main():
     parser.add_argument("--source", default="akshare", help="for sim_live mode")
     parser.add_argument("--interval-sec", type=int, default=60, help="for sim_live mode")
     parser.add_argument("--max-cycles", type=int, default=0, help="for sim_live mode, 0=infinite")
+    parser.add_argument("--ignore-market-hours", action="store_true", help="for sim_live mode")
     parser.add_argument("--auto-adjust", action="store_true", help="for sim_live mode")
     parser.add_argument("--adjust-every-cycles", type=int, default=None, help="for sim_live mode")
     parser.add_argument("--tune-train-size", type=int, default=None, help="for sim_live mode")
@@ -91,6 +92,8 @@ def main():
             ]
             if args.auto_adjust:
                 sys.argv.append("--auto-adjust")
+            if args.ignore_market_hours:
+                sys.argv.append("--ignore-market-hours")
             optional_pairs = [
                 ("--adjust-every-cycles", args.adjust_every_cycles),
                 ("--tune-train-size", args.tune_train_size),
