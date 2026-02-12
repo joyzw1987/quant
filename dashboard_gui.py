@@ -28,7 +28,7 @@ def _format_num(value):
 
 
 class MonitorUI:
-    def __init__(self, root, default_symbol=None, auto_start=False):
+    def __init__(self, root, default_symbol=None, auto_start=False, auto_start_live=False):
         self.root = root
         self.root.title("量化实时监控")
         self.root.geometry("1180x760")
@@ -83,7 +83,9 @@ class MonitorUI:
         self._update_policy_text()
         self._poll()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        if auto_start:
+        if auto_start_live:
+            self._start_live_run()
+        elif auto_start:
             self._start_run()
 
     def _build_layout(self):
@@ -523,9 +525,14 @@ class MonitorUI:
         self.root.after(400, self._poll)
 
 
-def main(default_symbol=None, auto_start=False):
+def main(default_symbol=None, auto_start=False, auto_start_live=False):
     root = tk.Tk()
-    MonitorUI(root, default_symbol=default_symbol, auto_start=auto_start)
+    MonitorUI(
+        root,
+        default_symbol=default_symbol,
+        auto_start=auto_start,
+        auto_start_live=auto_start_live,
+    )
     root.mainloop()
 
 

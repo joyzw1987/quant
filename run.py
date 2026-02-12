@@ -18,12 +18,19 @@ def run_sim(config, symbol=None, output_dir="output"):
     backtest_main(symbol_override=target_symbol, output_dir=output_dir)
 
 
-def run_sim_with_gui(config, symbol=None, auto_start=True):
+def run_sim_with_gui(config, symbol=None, auto_start=True, auto_start_live=False):
     from dashboard_gui import main as gui_main
 
     target_symbol = symbol or config.get("symbol")
-    print(f"[RUN] mode=sim_gui symbol={target_symbol} auto_start={auto_start}")
-    gui_main(default_symbol=target_symbol, auto_start=auto_start)
+    print(
+        f"[RUN] mode=sim_gui symbol={target_symbol} "
+        f"auto_start={auto_start} auto_start_live={auto_start_live}"
+    )
+    gui_main(
+        default_symbol=target_symbol,
+        auto_start=auto_start,
+        auto_start_live=auto_start_live,
+    )
 
 
 def run_ctp(config):
@@ -87,7 +94,8 @@ def main():
     )
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--output-dir", default="output")
-    parser.add_argument("--auto-start", action="store_true", help="for sim_gui mode")
+    parser.add_argument("--auto-start", action="store_true", help="for sim_gui mode (backtest)")
+    parser.add_argument("--auto-start-live", action="store_true", help="for sim_gui mode (sim_live)")
     parser.add_argument("--source", default="akshare", help="for sim_live mode")
     parser.add_argument("--interval-sec", type=int, default=60, help="for sim_live mode")
     parser.add_argument("--max-cycles", type=int, default=0, help="for sim_live mode, 0=infinite")
@@ -150,7 +158,12 @@ def main():
     report_validation(errors, warnings)
 
     if mode == "sim_gui":
-        run_sim_with_gui(config, symbol=symbol, auto_start=args.auto_start)
+        run_sim_with_gui(
+            config,
+            symbol=symbol,
+            auto_start=args.auto_start,
+            auto_start_live=args.auto_start_live,
+        )
     elif mode == "sim_live":
         from sim_live_runner import main as sim_live_main
 
