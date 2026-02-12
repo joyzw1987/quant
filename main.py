@@ -134,15 +134,35 @@ def main(symbol_override=None, output_dir="output"):
 
     data = DataEngine()
     os.makedirs(output_dir, exist_ok=True)
+    logger = Logger(config.get("monitor", {}).get("log_file", "logs/runtime.log"))
+    alert = AlertManager(
+        config.get("monitor", {}).get("alert_file", "logs/alerts.log"),
+        config.get("monitor", {}).get("webhook_url", ""),
+    )
+
     bars = data.get_bars(symbol)
     data_report = data.validate_bars(bars)
     data.write_data_report(data_report, os.path.join(output_dir, "data_quality_report.txt"))
     ok, dq_errors, dq_warnings = evaluate_data_quality(data_report, config.get("data_quality", {}))
     for w in dq_warnings:
         print(f"[WARN] {w}")
+        logger.log(f"[WARN] {w}")
+        alert.send_event(
+            event="data_quality_warn",
+            level="WARN",
+            message=f"symbol={symbol} {w}",
+            data={"report": data_report},
+        )
     if not ok:
         for e in dq_errors:
             print(f"[ERROR] {e}")
+            logger.log(f"[ERROR] {e}")
+        alert.send_event(
+            event="data_quality_block",
+            level="ERROR",
+            message=f"symbol={symbol} data quality gate blocked run",
+            data={"errors": dq_errors, "report": data_report},
+        )
         raise SystemExit("Data quality gate blocked run.")
 
     strategy_cfg = config["strategy"]
@@ -206,11 +226,6 @@ def main(symbol_override=None, output_dir="output"):
         cost_model=build_cost_model(config),
     )
 
-    logger = Logger(config.get("monitor", {}).get("log_file", "logs/runtime.log"))
-    alert = AlertManager(
-        config.get("monitor", {}).get("alert_file", "logs/alerts.log"),
-        config.get("monitor", {}).get("webhook_url", ""),
-    )
     runtime = RuntimeState("state/runtime_state.json")
 
     initial_capital = config["backtest"]["initial_capital"]
