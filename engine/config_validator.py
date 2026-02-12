@@ -96,6 +96,24 @@ def validate_config(config, mode="paper"):
     errors.extend(policy_errors)
     warnings.extend(policy_warnings)
 
+    cycle_cfg = config.get("research_cycle", {})
+    if cycle_cfg:
+        numeric_keys = [
+            "max_days",
+            "holdout_bars",
+            "max_candidates",
+            "dd_penalty",
+            "min_trades",
+            "min_holdout_trades",
+            "min_score_improve",
+        ]
+        for key in numeric_keys:
+            value = cycle_cfg.get(key)
+            if value is None:
+                continue
+            if not _is_number(value):
+                push_error(f"research_cycle.{key} must be a number.")
+
     return errors, warnings
 
 

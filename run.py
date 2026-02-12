@@ -33,9 +33,22 @@ def run_ctp(config):
     ctp_main()
 
 
+def run_research_cycle(config, symbol=None):
+    from research_cycle import main as cycle_main
+
+    target_symbol = symbol or config.get("symbol")
+    print(f"[RUN] mode=research_cycle symbol={target_symbol}")
+    argv_backup = sys.argv[:]
+    try:
+        sys.argv = ["research_cycle.py", "--symbol", target_symbol]
+        cycle_main()
+    finally:
+        sys.argv = argv_backup
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Unified runner: sim/sim_live/ctp")
-    parser.add_argument("--mode", default=None, choices=["sim", "sim_gui", "sim_live", "ctp"])
+    parser = argparse.ArgumentParser(description="Unified runner: sim/sim_live/ctp/research_cycle")
+    parser.add_argument("--mode", default=None, choices=["sim", "sim_gui", "sim_live", "ctp", "research_cycle"])
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--auto-start", action="store_true", help="for sim_gui mode")
@@ -65,6 +78,12 @@ def main():
         errors, warnings = validate_config(config, mode="ctp")
         report_validation(errors, warnings)
         run_ctp(config)
+        return
+
+    if mode == "research_cycle":
+        errors, warnings = validate_config(config, mode="paper")
+        report_validation(errors, warnings)
+        run_research_cycle(config, symbol=symbol)
         return
 
     errors, warnings = validate_config(config, mode="paper")

@@ -58,6 +58,11 @@ python run.py --mode sim_live --source akshare --interval-sec 60 --auto-adjust -
 python run.py --mode sim_live --source akshare --interval-sec 60 --ignore-market-hours
 ```
 
+研究周期自动化（重建样本 + 严格样本外验证 + 回测）：
+```
+python run.py --mode research_cycle
+```
+
 方式 C：批量回测（多合约）
 ```
 python batch_runner.py
@@ -135,9 +140,14 @@ python walk_forward_tune.py --symbol M2609 --train-size 480 --test-size 120 --st
 ```
 python strict_oos_validate.py --symbol M2609 --holdout-bars 240 --max-candidates 400
 ```
-若留出段优于基线并自动写回参数：
+若留出段优于基线且满足生效门槛并自动写回参数：
 ```
-python strict_oos_validate.py --symbol M2609 --holdout-bars 240 --max-candidates 400 --apply-best
+python strict_oos_validate.py --symbol M2609 --holdout-bars 240 --max-candidates 400 --min-holdout-trades 4 --min-score-improve 0 --apply-best
+```
+
+方式 L-3：一键研究周期（推荐定时）
+```
+python research_cycle.py --symbol M2609 --max-days 120 --holdout-bars 240 --max-candidates 400 --min-holdout-trades 4 --min-score-improve 0 --require-positive-holdout
 ```
 
 方式 M：月度收益/回撤/交易统计
@@ -156,6 +166,7 @@ python monthly_report.py
 - `output/walk_forward_<symbol>.json` 滚动验证汇总
 - `output/strict_oos_report.json` 严格样本外验证报告
 - `output/strategy_optimization.json` 参数优化报告
+- `output/research_cycle_summary.json` 一键研究周期摘要
 - `output/monthly_report.csv` 月度收益/回撤/交易统计
 - `output/monthly_report.json` 月度汇总
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
@@ -198,6 +209,23 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
 "data_storage": {
   "save_raw": true,
   "raw_root": "E:/quantData"
+}
+```
+
+研究周期配置（`config.json`）：
+```json
+"research_cycle": {
+  "enabled": false,
+  "max_days": 120,
+  "holdout_bars": 240,
+  "max_candidates": 400,
+  "dd_penalty": 0.4,
+  "min_trades": 4,
+  "min_holdout_trades": 4,
+  "min_score_improve": 0.0,
+  "require_positive_holdout": false,
+  "apply_best": true,
+  "run_backtest_after": true
 }
 ```
 

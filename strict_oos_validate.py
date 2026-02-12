@@ -80,6 +80,44 @@ def score_of(stats, dd_penalty):
     return float(stats["pnl"]) - float(dd_penalty) * float(stats["max_drawdown"])
 
 
+def choose_winner(
+    baseline_stats,
+    baseline_score,
+    tuned_stats,
+    tuned_score,
+    min_holdout_trades,
+    min_score_improve,
+    require_positive_holdout=False,
+):
+    score_improve = float(tuned_score) - float(baseline_score)
+    reasons = []
+    gate_pass = True
+
+    if tuned_score <= baseline_score:
+        gate_pass = False
+        reasons.append("tuned_score_not_better_than_baseline")
+    if int(tuned_stats.get("trades", 0)) < int(min_holdout_trades):
+        gate_pass = False
+        reasons.append("holdout_trades_below_threshold")
+    if score_improve < float(min_score_improve):
+        gate_pass = False
+        reasons.append("score_improve_below_threshold")
+    if require_positive_holdout and float(tuned_stats.get("pnl", 0.0)) <= 0:
+        gate_pass = False
+        reasons.append("holdout_pnl_not_positive")
+
+    winner = "tuned" if gate_pass else "baseline"
+    if gate_pass:
+        reasons.append("gate_passed")
+
+    return {
+        "winner": winner,
+        "gate_pass": gate_pass,
+        "score_improve": score_improve,
+        "reasons": reasons,
+    }
+
+
 def pick_best(config, bars, candidates, dd_penalty=0.4, min_trades=4):
     best = None
     best_stats = None
@@ -103,6 +141,9 @@ def main():
     parser.add_argument("--dd-penalty", type=float, default=0.4)
     parser.add_argument("--min-trades", type=int, default=4)
     parser.add_argument("--max-candidates", type=int, default=400)
+    parser.add_argument("--min-holdout-trades", type=int, default=4)
+    parser.add_argument("--min-score-improve", type=float, default=0.0)
+    parser.add_argument("--require-positive-holdout", action="store_true")
     parser.add_argument("--apply-best", action="store_true")
     args = parser.parse_args()
 
@@ -135,11 +176,17 @@ def main():
     best_oos_stats = run_once(config, oos_bars, best_cfg)
     best_oos_score = score_of(best_oos_stats, args.dd_penalty)
 
-    winner = "baseline"
-    winner_cfg = baseline_cfg
-    if best_oos_score > baseline_oos_score:
-        winner = "tuned"
-        winner_cfg = best_cfg
+    decision = choose_winner(
+        baseline_stats=baseline_oos_stats,
+        baseline_score=baseline_oos_score,
+        tuned_stats=best_oos_stats,
+        tuned_score=best_oos_score,
+        min_holdout_trades=max(0, int(args.min_holdout_trades)),
+        min_score_improve=float(args.min_score_improve),
+        require_positive_holdout=bool(args.require_positive_holdout),
+    )
+    winner = decision["winner"]
+    winner_cfg = baseline_cfg if winner == "baseline" else best_cfg
 
     if args.apply_best and winner == "tuned":
         config["strategy"] = winner_cfg
@@ -160,6 +207,9 @@ def main():
             "candidate_count": len(candidates),
             "dd_penalty": args.dd_penalty,
             "min_trades": args.min_trades,
+            "min_holdout_trades": args.min_holdout_trades,
+            "min_score_improve": args.min_score_improve,
+            "require_positive_holdout": bool(args.require_positive_holdout),
         },
         "baseline": {
             "params": baseline_cfg,
@@ -173,6 +223,7 @@ def main():
             "holdout_stats": best_oos_stats,
             "holdout_score": best_oos_score,
         },
+        "decision": decision,
         "winner": winner,
         "applied": bool(args.apply_best and winner == "tuned"),
     }
@@ -184,6 +235,7 @@ def main():
     print(f"train_bars={len(train_bars)} holdout_bars={len(oos_bars)}")
     print(f"baseline_holdout={baseline_oos_stats}")
     print(f"tuned_holdout={best_oos_stats}")
+    print(f"decision={decision}")
     print(f"winner={winner} applied={report['applied']}")
 
 

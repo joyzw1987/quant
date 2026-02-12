@@ -139,6 +139,19 @@
                          "save_raw":  true,
                          "raw_root":  "E:/quantData"
                      },
+    "research_cycle":  {
+                           "enabled":  false,
+                           "max_days":  120,
+                           "holdout_bars":  240,
+                           "max_candidates":  400,
+                           "dd_penalty":  0.4,
+                           "min_trades":  4,
+                           "min_holdout_trades":  4,
+                           "min_score_improve":  0.0,
+                           "require_positive_holdout":  false,
+                           "apply_best":  true,
+                           "run_backtest_after":  true
+                       },
     "auto_adjust":  {
                         "enabled":  false,
                         "adjust_every_cycles":  5,

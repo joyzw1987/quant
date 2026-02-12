@@ -1,6 +1,6 @@
 import unittest
 
-from strict_oos_validate import build_candidates, frange
+from strict_oos_validate import build_candidates, choose_winner, frange
 
 
 class StrictOosTest(unittest.TestCase):
@@ -28,6 +28,33 @@ class StrictOosTest(unittest.TestCase):
         candidates = build_candidates(cfg, top_n=120)
         self.assertTrue(len(candidates) <= 120)
         self.assertTrue(len(candidates) > 0)
+
+    def test_choose_winner_gate_pass(self):
+        result = choose_winner(
+            baseline_stats={"pnl": 100, "trades": 8, "max_drawdown": 50},
+            baseline_score=80,
+            tuned_stats={"pnl": 140, "trades": 10, "max_drawdown": 40},
+            tuned_score=120,
+            min_holdout_trades=6,
+            min_score_improve=10,
+            require_positive_holdout=True,
+        )
+        self.assertEqual("tuned", result["winner"])
+        self.assertTrue(result["gate_pass"])
+
+    def test_choose_winner_gate_block(self):
+        result = choose_winner(
+            baseline_stats={"pnl": 100, "trades": 8, "max_drawdown": 50},
+            baseline_score=80,
+            tuned_stats={"pnl": 60, "trades": 2, "max_drawdown": 40},
+            tuned_score=79,
+            min_holdout_trades=6,
+            min_score_improve=10,
+            require_positive_holdout=True,
+        )
+        self.assertEqual("baseline", result["winner"])
+        self.assertFalse(result["gate_pass"])
+        self.assertIn("holdout_trades_below_threshold", result["reasons"])
 
 
 if __name__ == "__main__":
