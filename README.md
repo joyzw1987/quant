@@ -45,6 +45,11 @@ python run.py --mode sim_gui --auto-start
 ```
 python run.py --mode sim_live --source akshare --interval-sec 60
 ```
+准实时轮询模拟 + 自动修正策略：
+```
+python run.py --mode sim_live --source akshare --interval-sec 60 --auto-adjust --adjust-every-cycles 5
+```
+说明：自动修正默认带“变差回滚”保护，若新参数导致本轮结果差于基线，会自动恢复上一版参数并重跑。
 
 方式 C：批量回测（多合约）
 ```

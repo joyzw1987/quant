@@ -42,6 +42,18 @@ def main():
     parser.add_argument("--source", default="akshare", help="for sim_live mode")
     parser.add_argument("--interval-sec", type=int, default=60, help="for sim_live mode")
     parser.add_argument("--max-cycles", type=int, default=0, help="for sim_live mode, 0=infinite")
+    parser.add_argument("--auto-adjust", action="store_true", help="for sim_live mode")
+    parser.add_argument("--adjust-every-cycles", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-train-size", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-test-size", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-step-size", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-fast-min", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-fast-max", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-slow-min", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-slow-max", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-slow-step", type=int, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-dd-penalty", type=float, default=None, help="for sim_live mode")
+    parser.add_argument("--tune-min-positive-windows", type=int, default=None, help="for sim_live mode")
     args = parser.parse_args()
 
     config = load_config()
@@ -77,6 +89,24 @@ def main():
                 "--output-dir",
                 args.output_dir,
             ]
+            if args.auto_adjust:
+                sys.argv.append("--auto-adjust")
+            optional_pairs = [
+                ("--adjust-every-cycles", args.adjust_every_cycles),
+                ("--tune-train-size", args.tune_train_size),
+                ("--tune-test-size", args.tune_test_size),
+                ("--tune-step-size", args.tune_step_size),
+                ("--tune-fast-min", args.tune_fast_min),
+                ("--tune-fast-max", args.tune_fast_max),
+                ("--tune-slow-min", args.tune_slow_min),
+                ("--tune-slow-max", args.tune_slow_max),
+                ("--tune-slow-step", args.tune_slow_step),
+                ("--tune-dd-penalty", args.tune_dd_penalty),
+                ("--tune-min-positive-windows", args.tune_min_positive_windows),
+            ]
+            for key, value in optional_pairs:
+                if value is not None:
+                    sys.argv.extend([key, str(value)])
             sim_live_main()
         finally:
             sys.argv = argv_backup
