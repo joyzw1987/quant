@@ -10,6 +10,7 @@ from datetime import datetime
 from engine.alert_manager import AlertManager
 from engine.config_validator import report_validation, validate_config
 from engine.cost_model import build_cost_model
+from engine.data_engine import DataEngine
 from engine.data_quality_gate import evaluate_data_quality
 from engine.execution_sim import SimExecution
 from engine.market_scheduler import is_market_open, load_market_schedule, next_market_open
@@ -493,6 +494,10 @@ def _normalize_tune_cfg(tune_cfg):
     return tune_cfg
 
 
+def _build_dq_report(bars):
+    return DataEngine().validate_bars(bars)
+
+
 def get_no_new_data_error_threshold(cfg):
     monitor_cfg = (cfg or {}).get("monitor", {})
     value = monitor_cfg.get("no_new_data_error_threshold", 3)
@@ -644,12 +649,7 @@ def main():
                 last_bar_time_seen = newest_bar_time
 
             bars_for_quality = _read_bars(data_out)
-            dq_report = {
-                "total": len(bars_for_quality),
-                "missing": 0,
-                "start": bars_for_quality[0]["datetime"] if bars_for_quality else "",
-                "end": bars_for_quality[-1]["datetime"] if bars_for_quality else "",
-            }
+            dq_report = _build_dq_report(bars_for_quality)
             ok_dq, dq_errors, dq_warnings = evaluate_data_quality(dq_report, cfg.get("data_quality", {}))
             for w in dq_warnings:
                 print(f"[SIM_LIVE][WARN] {w}")
