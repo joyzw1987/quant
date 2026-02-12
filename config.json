@@ -222,5 +222,16 @@
                         "min_positive_windows":  1,
                         "rollback_on_worse":  true,
                         "min_improve":  0
+                    },
+    "portfolio":  {
+                      "enabled":  false,
+                      "symbols":  [
+                                      "M2609"
+                                  ],
+                      "max_corr":  0.8,
+                      "weight_method":  "equal",
+                      "rebalance":  "none",
+                      "min_rebalance_bars":  100,
+                      "output_dir":  "output/portfolio"
                     }
 }

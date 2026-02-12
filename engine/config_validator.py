@@ -188,6 +188,21 @@ def validate_config(config, mode="paper"):
         if not _is_number(threshold) or threshold < 0:
             push_error("monitor.drawdown_alert_threshold must be >= 0.")
 
+    portfolio = config.get("portfolio", {})
+    if portfolio:
+        max_corr = portfolio.get("max_corr")
+        if max_corr is not None and (not _is_number(max_corr) or max_corr < -1 or max_corr > 1):
+            push_error("portfolio.max_corr must be between -1 and 1.")
+        weight_method = portfolio.get("weight_method")
+        if weight_method is not None and str(weight_method) not in ("equal", "risk_budget"):
+            push_error("portfolio.weight_method must be 'equal' or 'risk_budget'.")
+        rebalance = portfolio.get("rebalance")
+        if rebalance is not None and str(rebalance) not in ("none", "weekly", "monthly"):
+            push_error("portfolio.rebalance must be 'none', 'weekly', or 'monthly'.")
+        min_rebalance_bars = portfolio.get("min_rebalance_bars")
+        if min_rebalance_bars is not None and (not isinstance(min_rebalance_bars, int) or min_rebalance_bars < 1):
+            push_error("portfolio.min_rebalance_bars must be an integer >= 1.")
+
     return errors, warnings
 
 
