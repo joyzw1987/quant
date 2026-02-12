@@ -13,6 +13,7 @@ from engine.data_engine import DataEngine
 from engine.data_quality_gate import evaluate_data_quality
 from engine.execution_sim import SimExecution
 from engine.logger import Logger
+from engine.market_scheduler import is_market_open, load_market_schedule
 from engine.perf_report import build_monthly_metrics, build_return_distribution, build_weekly_metrics
 from engine.risk import RiskManager
 from engine.runtime_state import RuntimeState
@@ -30,36 +31,6 @@ def parse_time(value):
         return None
     hour, minute = value.split(":")
     return time(int(hour), int(minute))
-
-
-def parse_schedule(schedule_cfg):
-    if not schedule_cfg:
-        return None
-    sessions = []
-    for s in schedule_cfg.get("sessions", []):
-        start = parse_time(s.get("start"))
-        end = parse_time(s.get("end"))
-        if start and end:
-            sessions.append((start, end))
-    return {"timezone": schedule_cfg.get("timezone", ""), "weekdays": schedule_cfg.get("weekdays", []), "sessions": sessions}
-
-
-def schedule_allows(dt, schedule):
-    if schedule is None:
-        return True
-    weekdays = schedule.get("weekdays", [])
-    if weekdays:
-        wd = dt.weekday() + 1
-        if wd not in weekdays:
-            return False
-    sessions = schedule.get("sessions", [])
-    if not sessions:
-        return True
-    t = dt.time()
-    for start, end in sessions:
-        if start <= t <= end:
-            return True
-    return False
 
 
 def compute_stats(trades):
@@ -195,8 +166,7 @@ def main(symbol_override=None, output_dir="output"):
 
     trade_start = parse_time(strategy_cfg.get("trade_start", ""))
     trade_end = parse_time(strategy_cfg.get("trade_end", ""))
-    schedule_cfg = config.get("market_hours") or config.get("schedule")
-    schedule = parse_schedule(schedule_cfg)
+    schedule = load_market_schedule(config)
 
     risk_cfg = config["risk"]
     risk = RiskManager(
@@ -264,7 +234,7 @@ def main(symbol_override=None, output_dir="output"):
         trade_end=trade_end,
         schedule=schedule,
         initial_capital=initial_capital,
-        schedule_checker=schedule_allows,
+        schedule_checker=is_market_open,
         runtime_update=update_runtime,
         safety_cfg=config.get("safety", {}),
     )

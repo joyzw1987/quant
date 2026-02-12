@@ -3,6 +3,7 @@
 from engine.backtest_engine import run_backtest
 from engine.cost_model import build_cost_model
 from engine.execution_sim import SimExecution
+from engine.market_scheduler import is_market_open, load_market_schedule
 from engine.risk import RiskManager
 from engine.strategy_factory import create_strategy
 
@@ -16,32 +17,12 @@ def parse_time(value):
 
 def parse_schedule(schedule_cfg):
     if not schedule_cfg:
-        return None
-    sessions = []
-    for session_cfg in schedule_cfg.get("sessions", []):
-        start = parse_time(session_cfg.get("start"))
-        end = parse_time(session_cfg.get("end"))
-        if start and end:
-            sessions.append((start, end))
-    return {"weekdays": schedule_cfg.get("weekdays", []), "sessions": sessions}
+        return load_market_schedule({})
+    return load_market_schedule({"market_hours": schedule_cfg})
 
 
 def schedule_allows(dt, schedule):
-    if schedule is None:
-        return True
-    weekdays = schedule.get("weekdays", [])
-    if weekdays:
-        weekday = dt.weekday() + 1
-        if weekday not in weekdays:
-            return False
-    sessions = schedule.get("sessions", [])
-    if not sessions:
-        return True
-    now_t = dt.time()
-    for start, end in sessions:
-        if start <= now_t <= end:
-            return True
-    return False
+    return is_market_open(dt, schedule)
 
 
 def compute_max_drawdown(equity_curve):
