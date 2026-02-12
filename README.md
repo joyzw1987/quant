@@ -58,6 +58,7 @@ python dashboard.py
 ```
 python dashboard_gui.py
 ```
+说明：界面中点击 `Run` 后会启动回测，并实时刷新最新 Bar 时间、价格、资金、持仓、交易数和最近成交。
 
 方式 I：报告索引页
 ```

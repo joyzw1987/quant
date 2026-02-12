@@ -43,6 +43,9 @@ def run_backtest(
                     "last_step": step,
                     "last_bar_time": bar["datetime"],
                     "last_price": price,
+                    "capital": capital,
+                    "position": execution.position,
+                    "trades": len(execution.trades),
                     "halt_reason": risk.halt_reason,
                 }
             )
@@ -54,7 +57,15 @@ def run_backtest(
             if hasattr(strategy, "on_new_day"):
                 strategy.on_new_day()
             if runtime_update:
-                runtime_update({"event": "new_day", "trading_day": str(bar_date)})
+                runtime_update(
+                    {
+                        "event": "new_day",
+                        "trading_day": str(bar_date),
+                        "capital": capital,
+                        "position": execution.position,
+                        "trades": len(execution.trades),
+                    }
+                )
 
         if not schedule_checker(bar_dt, schedule):
             append_equity(step, bar["datetime"])
@@ -74,6 +85,16 @@ def run_backtest(
                 risk.update_after_trade(pnl, capital)
                 if hasattr(strategy, "on_trade_close"):
                     strategy.on_trade_close(pnl, step)
+                if runtime_update and execution.trades:
+                    runtime_update(
+                        {
+                            "event": "trade_close",
+                            "capital": capital,
+                            "position": execution.position,
+                            "trades": len(execution.trades),
+                            "last_trade": execution.trades[-1],
+                        }
+                    )
             append_equity(step, bar["datetime"])
             continue
 
@@ -118,6 +139,16 @@ def run_backtest(
             daily_trade_count += 1
             if hasattr(risk, "record_order"):
                 risk.record_order()
+            if runtime_update:
+                runtime_update(
+                    {
+                        "event": "trade_open",
+                        "signal": signal,
+                        "capital": capital,
+                        "position": execution.position,
+                        "trades": len(execution.trades),
+                    }
+                )
 
         append_equity(step, bar["datetime"])
 
@@ -125,6 +156,30 @@ def run_backtest(
         pnl = execution.force_close(bars[-1]["close"], bar_time=bars[-1]["datetime"])
         capital += pnl
         risk.update_after_trade(pnl, capital)
+        if runtime_update and execution.trades:
+            runtime_update(
+                {
+                    "event": "force_close",
+                    "capital": capital,
+                    "position": execution.position,
+                    "trades": len(execution.trades),
+                    "last_trade": execution.trades[-1],
+                }
+            )
+
+    if runtime_update:
+        last_bar = bars[-1] if bars else {}
+        runtime_update(
+            {
+                "event": "finished",
+                "last_step": (len(bars) - 1) if bars else -1,
+                "last_bar_time": last_bar.get("datetime"),
+                "last_price": last_bar.get("close"),
+                "capital": capital,
+                "position": execution.position,
+                "trades": len(execution.trades),
+            }
+        )
 
     return {
         "capital": capital,
