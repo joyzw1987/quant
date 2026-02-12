@@ -333,7 +333,7 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   "sessions": [
     {"start": "09:00", "end": "11:30"},
     {"start": "13:30", "end": "15:00"},
-    {"start": "21:00", "end": "23:00"}
+    {"start": "21:00", "end": "02:30"}
   ],
   "weekdays": [1, 2, 3, 4, 5],
   "holidays": {
@@ -349,6 +349,7 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   ]
 }
 ```
+说明：`sessions` 支持跨午夜时段（`start > end`），例如 `21:00-02:30`。调度器会自动识别“前一交易日夜盘延续到次日凌晨”的可交易窗口。
 
 成本模型（按时段区分滑点/手续费倍率/成交率）：
 ```json
