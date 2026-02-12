@@ -22,6 +22,9 @@ def main():
         "md_connected": False,
         "td_connected": False,
         "subscribed": False,
+        "place_order_ok": False,
+        "cancel_order_ok": False,
+        "orders_after_place": 0,
     }
 
     if not report["simulate"]:
@@ -68,9 +71,18 @@ def main():
     if symbol:
         report["subscribed"] = bool(md.subscribe([symbol]))
 
+    order_ret = td.place_order(symbol=symbol or "M2609", direction="BUY", price=1.0, size=1, order_type="LIMIT")
+    report["place_order_ok"] = bool(order_ret.get("ok"))
+    order_id = order_ret.get("order_id")
+    orders = td.query_orders()
+    report["orders_after_place"] = len(orders or [])
+    if order_id:
+        cancel_ret = td.cancel_order(order_id)
+        report["cancel_order_ok"] = bool(cancel_ret.get("ok"))
+
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
-    if not (report["md_connected"] and report["td_connected"]):
+    if not (report["md_connected"] and report["td_connected"] and report["place_order_ok"]):
         raise SystemExit("[CTP][ERROR] gateway connect failed")
 
     print("[CTP] health check passed")
