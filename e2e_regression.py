@@ -56,6 +56,7 @@ def main():
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--require-existing-data", action="store_true")
+    parser.add_argument("--fetch-source", default="csv")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -64,6 +65,24 @@ def main():
     generated_data = _ensure_data_file(data_path, require_existing=args.require_existing_data)
 
     steps = []
+    fetch_days = "20" if args.quick else "120"
+    steps.append(
+        _run_step(
+            "data_fetch",
+            [
+                sys.executable,
+                "data_update.py",
+                "--symbol",
+                args.symbol,
+                "--days",
+                fetch_days,
+                "--out",
+                data_path,
+                "--source",
+                args.fetch_source,
+            ],
+        )
+    )
     strict_cmd = [
         sys.executable,
         "strict_oos_validate.py",

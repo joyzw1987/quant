@@ -60,7 +60,8 @@ class E2ERegressionTest(unittest.TestCase):
 
             report = json.loads((out_dir / "e2e_regression_report.json").read_text(encoding="utf-8"))
             self.assertTrue(report["ok"])
-            self.assertEqual(len(report["steps"]), 5)
+            self.assertEqual(len(report["steps"]), 6)
+            self.assertEqual(report["steps"][0]["name"], "data_fetch")
 
     def test_main_auto_generate_when_data_missing(self):
         with tempfile.TemporaryDirectory() as d:

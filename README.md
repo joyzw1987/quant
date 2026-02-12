@@ -227,7 +227,7 @@ python paper_consistency_check.py --trades output/trades.csv
 ```
 python e2e_regression.py --symbol M2609 --quick --output-dir output
 ```
-说明：若 `data/<symbol>.csv` 缺失，会自动生成一份可复现实验数据；若希望强制要求已有数据，增加 `--require-existing-data`。
+说明：若 `data/<symbol>.csv` 缺失，会自动生成一份可复现实验数据；若希望强制要求已有数据，增加 `--require-existing-data`。抓数步骤默认 `--fetch-source csv`（离线可复现），可改为 `--fetch-source akshare`。
 
 ## 2. CTP 对接说明
 - 参考 `docs/ctp_checklist.md`
