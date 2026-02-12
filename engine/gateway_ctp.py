@@ -70,6 +70,12 @@ class CtpTradeGateway(GatewayBase):
         self.connected = False
         self.last_error = ""
         self.order_state = OrderStateMachine()
+        self.protection_mode = False
+        self.protection_reason = ""
+
+    def set_protection_mode(self, enabled, reason=""):
+        self.protection_mode = bool(enabled)
+        self.protection_reason = str(reason or "")
 
     def connect(self, **kwargs):
         try:
@@ -102,6 +108,8 @@ class CtpTradeGateway(GatewayBase):
     def place_order(self, symbol, direction, price, size, order_type="LIMIT"):
         if not self.connected:
             return {"ok": False, "error": "TRADE_NOT_CONNECTED"}
+        if self.protection_mode:
+            return {"ok": False, "error": "PROTECTION_MODE", "reason": self.protection_reason}
         try:
             if self.api and hasattr(self.api, "place_order"):
                 order_id = self.api.place_order(

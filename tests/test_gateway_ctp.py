@@ -29,6 +29,13 @@ class GatewayCtpTest(unittest.TestCase):
         cancel_ret = self.td.cancel_order(order_id)
         self.assertFalse(cancel_ret.get("ok"))
 
+    def test_protection_mode_blocks_new_order(self):
+        self.assertTrue(self.td.connect())
+        self.td.set_protection_mode(True, reason="RECONCILE_MISMATCH")
+        ret = self.td.place_order(symbol="M2609", direction="BUY", price=1.0, size=1)
+        self.assertFalse(ret.get("ok"))
+        self.assertEqual(ret.get("error"), "PROTECTION_MODE")
+
 
 if __name__ == "__main__":
     unittest.main()

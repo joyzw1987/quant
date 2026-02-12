@@ -176,6 +176,18 @@ def main():
                     message="reconcile recovered, leave protection mode",
                     data={},
                 )
+            if hasattr(td, "set_protection_mode"):
+                td.set_protection_mode(protection_mode, reason="RECONCILE_MISMATCH" if protection_mode else "")
+
+            # Keep local snapshot aligned only when no mismatch, so next cycle can
+            # detect new external changes with a fresh baseline.
+            if not mismatch:
+                store.update(
+                    {
+                        "local_positions": broker_summary,
+                        "local_account": account,
+                    }
+                )
 
             payload = {
                 "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
