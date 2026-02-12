@@ -93,6 +93,7 @@ python walk_forward_runner.py --symbol M2609 --train-size 480 --test-size 120 --
 ```
 python walk_forward_tune.py --symbol M2609 --train-size 480 --test-size 120 --step-size 120
 ```
+说明：当 `strategy.name` 为 `rsi_ma` 时，脚本会按 `rsi_ma` 真实信号逻辑评估 `fast/slow`，不再使用纯均线近似评分。
 
 方式 M：月度收益/回撤/交易统计
 ```
