@@ -252,6 +252,7 @@ python e2e_regression.py --symbol M2609 --quick --output-dir output
   - 包含 `blocked_by_corr` 字段，记录因相关性上限被剔除的品种明细
 - `output/portfolio/portfolio_equity.csv` 组合权益曲线
 - `output/portfolio/portfolio_weight_events.json` 组合权重变更记录
+- `output/paper_check_report.json` Paper 一致性检查报告
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_other.csv` 不在配置时段内的数据
 

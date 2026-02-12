@@ -1,9 +1,10 @@
 import csv
+import json
 import os
 import tempfile
 import unittest
 
-from paper_consistency_check import check_trades
+from paper_consistency_check import build_report, check_trades, write_report
 
 
 class PaperConsistencyCheckTest(unittest.TestCase):
@@ -71,7 +72,16 @@ class PaperConsistencyCheckTest(unittest.TestCase):
             errors = check_trades(path)
             self.assertTrue(any("pnl mismatch" in e for e in errors))
 
+    def test_write_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = os.path.join(tmp, "paper_check_report.json")
+            report = build_report("output/trades.csv", ["x", "y"])
+            write_report(report_path, report)
+            with open(report_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
-

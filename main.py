@@ -19,7 +19,9 @@ from engine.risk import RiskManager
 from engine.runtime_state import RuntimeState
 from engine.strategy_factory import create_strategy
 from engine.strategy_state import StrategyState
+from paper_consistency_check import build_report as build_paper_check_report
 from paper_consistency_check import check_trades
+from paper_consistency_check import write_report as write_paper_check_report
 
 
 def load_config(path="config.json"):
@@ -32,6 +34,14 @@ def parse_time(value):
         return None
     hour, minute = value.split(":")
     return time(int(hour), int(minute))
+
+
+def parse_schedule(schedule_cfg):
+    return load_market_schedule({"market_hours": schedule_cfg or {}})
+
+
+def schedule_allows(dt, schedule):
+    return is_market_open(dt, schedule)
 
 
 def compute_stats(trades):
@@ -319,6 +329,11 @@ def main(symbol_override=None, output_dir="output"):
     if paper_check_cfg.get("enabled", True):
         trades_path = os.path.join(output_dir, "trades.csv")
         paper_errors = check_trades(trades_path)
+        paper_report_path = os.path.join(output_dir, "paper_check_report.json")
+        write_paper_check_report(
+            paper_report_path,
+            build_paper_check_report(trades_path, paper_errors),
+        )
         if paper_errors:
             for err in paper_errors:
                 logger.log(f"[PAPER_CHECK][ERROR] {err}")

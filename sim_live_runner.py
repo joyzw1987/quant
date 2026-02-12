@@ -17,6 +17,9 @@ from engine.risk import RiskManager
 from engine.runtime_state import RuntimeState
 from engine.strategy_factory import create_strategy
 from main import main as backtest_main
+from paper_consistency_check import build_report as build_paper_check_report
+from paper_consistency_check import check_trades
+from paper_consistency_check import write_report as write_paper_check_report
 
 
 def load_config(path="config.json"):
@@ -377,6 +380,11 @@ class ContinuousPaperSession:
         perf = self._compute_stats()
         with open(os.path.join(self.output_dir, "performance.json"), "w", encoding="utf-8") as f:
             json.dump(perf, f, ensure_ascii=False, indent=2)
+
+        trades_path = os.path.join(self.output_dir, "trades.csv")
+        paper_errors = check_trades(trades_path)
+        paper_report_path = os.path.join(self.output_dir, "paper_check_report.json")
+        write_paper_check_report(paper_report_path, build_paper_check_report(trades_path, paper_errors))
         return perf
 
 
