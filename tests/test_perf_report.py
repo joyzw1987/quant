@@ -1,6 +1,6 @@
 import unittest
 
-from engine.perf_report import build_monthly_metrics, build_weekly_metrics
+from engine.perf_report import build_monthly_metrics, build_return_distribution, build_weekly_metrics
 
 
 class PerfReportTest(unittest.TestCase):
@@ -45,6 +45,22 @@ class PerfReportTest(unittest.TestCase):
         self.assertTrue(len(rows) >= 2)
         self.assertIn("week", rows[0])
         self.assertIn("pnl", rows[0])
+
+    def test_build_return_distribution(self):
+        rows = [
+            {"return_pct": -3.0},
+            {"return_pct": -1.0},
+            {"return_pct": 0.5},
+            {"return_pct": 3.0},
+        ]
+        dist = build_return_distribution(rows)
+        self.assertEqual(dist["count"], 4)
+        self.assertEqual(dist["positive_count"], 2)
+        self.assertEqual(dist["negative_count"], 2)
+        self.assertEqual(dist["buckets"]["lt_-2"], 1)
+        self.assertEqual(dist["buckets"]["-2_to_0"], 1)
+        self.assertEqual(dist["buckets"]["0_to_2"], 1)
+        self.assertEqual(dist["buckets"]["gt_2"], 1)
 
 
 if __name__ == "__main__":

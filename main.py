@@ -12,6 +12,7 @@ from engine.cost_model import build_cost_model
 from engine.data_engine import DataEngine
 from engine.execution_sim import SimExecution
 from engine.logger import Logger
+from engine.perf_report import build_monthly_metrics, build_return_distribution, build_weekly_metrics
 from engine.risk import RiskManager
 from engine.runtime_state import RuntimeState
 from engine.strategy_factory import create_strategy
@@ -110,6 +111,17 @@ def compute_sortino(returns):
     if downside_std == 0:
         return 0.0
     return mean_ret / downside_std
+
+
+def write_rows_csv(path, rows, fallback_headers):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        if rows:
+            writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+        else:
+            writer = csv.writer(f)
+            writer.writerow(fallback_headers)
 
 
 def main(symbol_override=None, output_dir="output"):
@@ -234,6 +246,10 @@ def main(symbol_override=None, output_dir="output"):
     total_return_pct = ((final_capital - initial_capital) / initial_capital * 100.0) if initial_capital else 0.0
     calmar = (total_return_pct / (max_drawdown_pct * 100.0)) if max_drawdown_pct > 0 else 0.0
     sortino = compute_sortino(compute_return_series(equity_curve))
+    monthly_rows = build_monthly_metrics(equity_curve, execution.trades)
+    weekly_rows = build_weekly_metrics(equity_curve, execution.trades)
+    monthly_dist = build_return_distribution(monthly_rows)
+    weekly_dist = build_return_distribution(weekly_rows)
 
     with open(os.path.join(output_dir, "equity_curve.csv"), "w", newline="", encoding="utf-8") as f:
         fieldnames = ["step", "cash", "unrealized", "equity", "drawdown", "datetime"]
@@ -252,6 +268,17 @@ def main(symbol_override=None, output_dir="output"):
         for t in execution.trades:
             writer.writerow(t)
 
+    write_rows_csv(
+        os.path.join(output_dir, "monthly_report.csv"),
+        monthly_rows,
+        fallback_headers=["month", "start_equity", "end_equity", "return_pct", "max_drawdown", "trade_count", "win_rate", "pnl"],
+    )
+    write_rows_csv(
+        os.path.join(output_dir, "weekly_report.csv"),
+        weekly_rows,
+        fallback_headers=["week", "start_equity", "end_equity", "return_pct", "max_drawdown", "trade_count", "win_rate", "pnl"],
+    )
+
     performance = {
         "initial_capital": initial_capital,
         "final_capital": final_capital,
@@ -268,9 +295,22 @@ def main(symbol_override=None, output_dir="output"):
         "expectancy": expectancy,
         "r_multiple_avg": 0.0,
         "r_multiple_sum": 0.0,
+        "weekly_distribution": weekly_dist,
+        "monthly_distribution": monthly_dist,
     }
     with open(os.path.join(output_dir, "performance.json"), "w", encoding="utf-8") as f:
         json.dump(performance, f, ensure_ascii=False, indent=2)
+
+    with open(os.path.join(output_dir, "period_distribution.json"), "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "weekly": {"rows": weekly_rows, "distribution": weekly_dist},
+                "monthly": {"rows": monthly_rows, "distribution": monthly_dist},
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     dd_alert_threshold = config.get("monitor", {}).get("drawdown_alert_threshold")
     if dd_alert_threshold is not None:

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
+import math
 
 
 def _month_key(dt_value):
@@ -126,3 +127,57 @@ def build_weekly_metrics(equity_rows, trade_rows):
             }
         )
     return rows
+
+
+def build_return_distribution(rows, return_key="return_pct"):
+    values = []
+    for row in rows:
+        try:
+            values.append(float(row.get(return_key, 0.0)))
+        except Exception:
+            continue
+
+    if not values:
+        return {
+            "count": 0,
+            "positive_count": 0,
+            "negative_count": 0,
+            "flat_count": 0,
+            "win_rate": 0.0,
+            "avg_return_pct": 0.0,
+            "std_return_pct": 0.0,
+            "best_return_pct": 0.0,
+            "worst_return_pct": 0.0,
+            "buckets": {"lt_-2": 0, "-2_to_0": 0, "0_to_2": 0, "gt_2": 0},
+        }
+
+    positive_count = sum(1 for v in values if v > 0)
+    negative_count = sum(1 for v in values if v < 0)
+    flat_count = len(values) - positive_count - negative_count
+    avg = sum(values) / len(values)
+    var = sum((v - avg) ** 2 for v in values) / len(values)
+    std = math.sqrt(var) if var > 0 else 0.0
+
+    buckets = {"lt_-2": 0, "-2_to_0": 0, "0_to_2": 0, "gt_2": 0}
+    for v in values:
+        if v < -2:
+            buckets["lt_-2"] += 1
+        elif v < 0:
+            buckets["-2_to_0"] += 1
+        elif v <= 2:
+            buckets["0_to_2"] += 1
+        else:
+            buckets["gt_2"] += 1
+
+    return {
+        "count": len(values),
+        "positive_count": positive_count,
+        "negative_count": negative_count,
+        "flat_count": flat_count,
+        "win_rate": (positive_count / len(values) * 100.0) if values else 0.0,
+        "avg_return_pct": avg,
+        "std_return_pct": std,
+        "best_return_pct": max(values),
+        "worst_return_pct": min(values),
+        "buckets": buckets,
+    }
