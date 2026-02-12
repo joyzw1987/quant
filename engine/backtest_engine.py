@@ -23,10 +23,28 @@ def run_backtest(
     daily_trade_count = 0
     current_date = None
     last_gate_reason = None
+    peak_equity = initial_capital
+    runtime_max_drawdown = 0.0
 
     safety_cfg = safety_cfg or {}
     kill_switch_file = safety_cfg.get("kill_switch_file", "")
     safety_max_daily_loss = safety_cfg.get("max_daily_loss")
+
+    def runtime_metrics():
+        nonlocal peak_equity, runtime_max_drawdown
+        if capital > peak_equity:
+            peak_equity = capital
+        dd = peak_equity - capital
+        if dd > runtime_max_drawdown:
+            runtime_max_drawdown = dd
+        total_trades = len(execution.trades)
+        win_trades = sum(1 for t in execution.trades if float(t.get("pnl", 0.0)) > 0)
+        win_rate = (win_trades / total_trades * 100.0) if total_trades > 0 else 0.0
+        return {
+            "total_pnl": capital - initial_capital,
+            "runtime_drawdown": runtime_max_drawdown,
+            "win_rate": win_rate,
+        }
 
     def append_equity(step, bar_time):
         equity_curve.append(
@@ -45,6 +63,7 @@ def run_backtest(
         bar_dt = datetime.strptime(bar["datetime"], "%Y-%m-%d %H:%M")
         bar_date = bar_dt.date()
         if runtime_update:
+            metrics = runtime_metrics()
             runtime_update(
                 {
                     "last_step": step,
@@ -55,6 +74,9 @@ def run_backtest(
                     "trades": len(execution.trades),
                     "halt_reason": risk.halt_reason,
                     "gate_reason": last_gate_reason,
+                    "total_pnl": metrics["total_pnl"],
+                    "runtime_drawdown": metrics["runtime_drawdown"],
+                    "win_rate": metrics["win_rate"],
                 }
             )
 
@@ -87,6 +109,7 @@ def run_backtest(
                         "capital": capital,
                         "position": execution.position,
                         "trades": len(execution.trades),
+                        "total_pnl": capital - initial_capital,
                     }
                 )
 
@@ -249,6 +272,8 @@ def run_backtest(
                 "capital": capital,
                 "position": execution.position,
                 "trades": len(execution.trades),
+                "total_pnl": capital - initial_capital,
+                "runtime_drawdown": runtime_max_drawdown,
             }
         )
 

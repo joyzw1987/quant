@@ -116,6 +116,9 @@ class BacktestEngineTest(unittest.TestCase):
         self.assertTrue(any(s.get("event") == "new_day" for s in snapshots))
         self.assertTrue(any(s.get("event") == "gate_block" for s in snapshots))
         self.assertTrue(any(s.get("gate_reason") == "NO_SIGNAL" for s in snapshots))
+        self.assertTrue(any("total_pnl" in s for s in snapshots))
+        self.assertTrue(any("runtime_drawdown" in s for s in snapshots))
+        self.assertTrue(any("win_rate" in s for s in snapshots))
 
     def test_kill_switch_halts_open(self):
         bars = [

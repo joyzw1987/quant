@@ -433,6 +433,12 @@ class MonitorUI:
         self.var_capital.set(_format_num(runtime.get("capital")))
         self.var_position.set(self._position_text(runtime.get("position")))
         self.var_trades.set(str(runtime.get("trades", 0)))
+        if runtime.get("total_pnl") is not None:
+            self.var_pnl.set(_format_num(runtime.get("total_pnl")))
+        if runtime.get("win_rate") is not None:
+            self.var_win_rate.set(f"{float(runtime.get('win_rate', 0.0)):.2f}%")
+        if runtime.get("runtime_drawdown") is not None:
+            self.var_drawdown.set(_format_num(runtime.get("runtime_drawdown")))
         self.var_halt_reason.set(str(runtime.get("halt_reason") or "-"))
         self.var_gate_reason.set(str(runtime.get("gate_reason") or "-"))
 
