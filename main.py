@@ -243,6 +243,7 @@ def main(symbol_override=None, output_dir="output"):
         initial_capital=initial_capital,
         schedule_checker=schedule_allows,
         runtime_update=update_runtime,
+        safety_cfg=config.get("safety", {}),
     )
     capital = result["capital"]
     equity_curve = result["equity_curve"]

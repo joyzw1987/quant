@@ -1,4 +1,5 @@
-﻿from datetime import datetime
+import os
+from datetime import datetime
 
 
 def run_backtest(
@@ -15,12 +16,17 @@ def run_backtest(
     initial_capital,
     schedule_checker,
     runtime_update=None,
+    safety_cfg=None,
 ):
     capital = initial_capital
     equity_curve = []
     daily_trade_count = 0
     current_date = None
     last_gate_reason = None
+
+    safety_cfg = safety_cfg or {}
+    kill_switch_file = safety_cfg.get("kill_switch_file", "")
+    safety_max_daily_loss = safety_cfg.get("max_daily_loss")
 
     def append_equity(step, bar_time):
         equity_curve.append(
@@ -83,6 +89,41 @@ def run_backtest(
                         "trades": len(execution.trades),
                     }
                 )
+
+        if kill_switch_file and os.path.exists(kill_switch_file):
+            risk.trigger_halt("KILL_SWITCH")
+            if runtime_update:
+                runtime_update(
+                    {
+                        "event": "safety_kill_switch",
+                        "last_step": step,
+                        "last_bar_time": bar["datetime"],
+                        "symbol": symbol,
+                        "halt_reason": risk.halt_reason,
+                    }
+                )
+
+        if safety_max_daily_loss is not None and risk.daily_pnl <= -abs(float(safety_max_daily_loss)):
+            risk.trigger_halt("SAFETY_DAILY_LOSS")
+
+        if execution.position is not None and hasattr(risk, "should_force_close") and risk.should_force_close():
+            pnl = execution.force_close(price, bar_time=bar["datetime"])
+            capital += pnl
+            risk.update_after_trade(pnl, capital)
+            risk.force_close_triggered = True
+            if runtime_update and execution.trades:
+                runtime_update(
+                    {
+                        "event": "force_close",
+                        "capital": capital,
+                        "position": execution.position,
+                        "trades": len(execution.trades),
+                        "last_trade": execution.trades[-1],
+                        "halt_reason": risk.halt_reason,
+                    }
+                )
+            append_equity(step, bar["datetime"])
+            continue
 
         if not schedule_checker(bar_dt, schedule):
             block_by("SCHEDULE_CLOSED")

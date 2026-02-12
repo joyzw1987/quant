@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+import tempfile
 
 from engine.backtest_engine import run_backtest
 from engine.execution_sim import SimExecution
@@ -114,6 +116,39 @@ class BacktestEngineTest(unittest.TestCase):
         self.assertTrue(any(s.get("event") == "new_day" for s in snapshots))
         self.assertTrue(any(s.get("event") == "gate_block" for s in snapshots))
         self.assertTrue(any(s.get("gate_reason") == "NO_SIGNAL" for s in snapshots))
+
+    def test_kill_switch_halts_open(self):
+        bars = [
+            {"datetime": "2026-02-09 09:00", "open": 100, "high": 101, "low": 99, "close": 100},
+            {"datetime": "2026-02-09 09:01", "open": 100, "high": 101, "low": 99, "close": 100},
+        ]
+        strategy = _NoTradeStrategy()
+        risk = RiskManager()
+        execution = SimExecution(slippage=0)
+
+        with tempfile.TemporaryDirectory() as d:
+            kill = Path(d) / "kill.switch"
+            kill.write_text("1", encoding="utf-8")
+            snapshots = []
+
+            run_backtest(
+                bars=bars,
+                strategy=strategy,
+                risk=risk,
+                execution=execution,
+                strategy_cfg={"min_atr": 0.0},
+                symbol="M2609",
+                max_trades_per_day=5,
+                trade_start=None,
+                trade_end=None,
+                schedule=None,
+                initial_capital=100000,
+                schedule_checker=lambda dt, schedule: True,
+                runtime_update=lambda p: snapshots.append(p),
+                safety_cfg={"kill_switch_file": str(kill)},
+            )
+            self.assertTrue(any(s.get("event") == "safety_kill_switch" for s in snapshots))
+            self.assertEqual(risk.halt_reason, "KILL_SWITCH")
 
 
 if __name__ == "__main__":
