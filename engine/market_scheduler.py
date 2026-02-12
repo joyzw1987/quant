@@ -100,7 +100,9 @@ def load_market_schedule(config):
 
 def _is_in_ranges(t, ranges):
     for start, end in ranges or []:
-        if start <= t <= end:
+        if start <= end and start <= t <= end:
+            return True
+        if start > end and (t >= start or t <= end):
             return True
     return False
 
@@ -130,12 +132,21 @@ def is_market_open(now, schedule):
     if date_str in schedule.get("full_closures", set()):
         return False
 
-    if not _day_openable(now.date(), schedule):
-        return False
+    current_openable = _day_openable(now.date(), schedule)
+    sessions = []
+    if current_openable:
+        sessions.extend(_sessions_for_date(now.date(), schedule))
 
-    sessions = _sessions_for_date(now.date(), schedule)
+    prev_day = now.date() - timedelta(days=1)
+    if _day_openable(prev_day, schedule):
+        prev_sessions = _sessions_for_date(prev_day, schedule)
+        # Carry over overnight sessions from previous day (e.g. 21:00-02:30).
+        for start, end in prev_sessions:
+            if start > end:
+                sessions.append((start, end))
+
     if not sessions:
-        return True
+        return current_openable
 
     t = now.time()
     if not _is_in_ranges(t, sessions):
