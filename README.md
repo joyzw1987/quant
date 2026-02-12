@@ -289,6 +289,9 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
 说明：
 - `data_update.py`、`data_update_merge.py`、`run_update_backtest.py` 已接入该策略。
 - 当前抓取脚本默认数据源参数：`--source akshare`。
+- `data_update.py` 支持：
+  - `--source akshare`：在线抓取分钟线。
+  - `--source csv`：从本地 `--out` 路径或 `data/<symbol>.csv` 读取并标准化（可用于离线/无网络回归）。
 - 原始数据目录在 `config.json -> data_storage` 中配置：
 ```json
 "data_storage": {

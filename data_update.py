@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from datetime import datetime
 
 import akshare as ak
@@ -28,6 +29,47 @@ def fetch_minutes(symbol: str, days: int) -> pd.DataFrame:
     return df
 
 
+def _normalize_minute_df(df: pd.DataFrame, days: int) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    required = ["datetime", "open", "high", "low", "close"]
+    if not set(required).issubset(set(df.columns)):
+        return pd.DataFrame()
+    out = df[required].copy()
+    out["datetime"] = pd.to_datetime(out["datetime"])
+    out = out.sort_values("datetime")
+    if days is not None and days > 0:
+        unique_dates = sorted(out["datetime"].dt.date.unique())
+        if len(unique_dates) > days:
+            keep = set(unique_dates[-days:])
+            out = out[out["datetime"].dt.date.isin(keep)]
+    return out
+
+
+def fetch_minutes_by_source(symbol: str, days: int, source: str, out_path: str) -> pd.DataFrame:
+    source_name = str(source or "").strip().lower()
+    if source_name == "akshare":
+        return fetch_minutes(symbol, days)
+    if source_name == "csv":
+        candidates = [out_path, os.path.join("data", f"{symbol}.csv")]
+        seen = set()
+        for path in candidates:
+            if path in seen:
+                continue
+            seen.add(path)
+            if not os.path.exists(path):
+                continue
+            try:
+                raw = pd.read_csv(path)
+            except Exception:
+                continue
+            normalized = _normalize_minute_df(raw, days)
+            if not normalized.empty:
+                return normalized
+        raise SystemExit(f"No local csv data found for symbol={symbol}. checked={candidates}")
+    raise SystemExit(f"Unsupported source: {source}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--symbol", default="M2609")
@@ -43,7 +85,12 @@ def main():
     raw_root = args.raw_root or storage_cfg.get("raw_root", "E:/quantData")
     save_raw = bool(storage_cfg.get("save_raw", True))
 
-    df = fetch_minutes(args.symbol, args.days)
+    df = fetch_minutes_by_source(
+        symbol=args.symbol,
+        days=args.days,
+        source=args.source,
+        out_path=args.out,
+    )
     if df.empty:
         raise SystemExit("No data fetched. Check symbol or data source.")
 
