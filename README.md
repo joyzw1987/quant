@@ -89,6 +89,11 @@ python run_update_backtest.py --symbol M2609 --days 20 --out data/M2609.csv
 python walk_forward_runner.py --symbol M2609 --train-size 480 --test-size 120 --step-size 120
 ```
 
+方式 L-1：Walk-Forward 自动调参并写回配置
+```
+python walk_forward_tune.py --symbol M2609 --train-size 480 --test-size 120 --step-size 120
+```
+
 方式 M：月度收益/回撤/交易统计
 ```
 python monthly_report.py
