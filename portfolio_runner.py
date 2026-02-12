@@ -225,6 +225,7 @@ def main_portfolio():
     )
     final_weights = weight_events[-1]["weights"] if weight_events else {}
     selected = weight_events[-1]["selected_symbols"] if weight_events else symbols
+    blocked = (weight_events[-1].get("meta") or {}).get("blocked_by_corr", []) if weight_events else []
     combined_pnl = (portfolio_equity[-1] - initial_capital) if portfolio_equity else 0.0
     max_dd = _max_drawdown(portfolio_equity)
 
@@ -237,6 +238,7 @@ def main_portfolio():
         "min_rebalance_bars": min_rebalance_bars,
         "rebalance_events": max(0, len(weight_events) - 1),
         "weights": final_weights,
+        "blocked_by_corr": blocked,
         "correlation": corr,
         "initial_capital": initial_capital,
         "final_capital": initial_capital + combined_pnl,

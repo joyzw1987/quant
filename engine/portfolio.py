@@ -40,17 +40,35 @@ def allocate_weights(symbols, corr_matrix, max_corr=0.8):
     return weights, selected
 
 
-def _filter_by_corr(symbols, corr_matrix, max_corr=0.8):
+def _filter_by_corr_details(symbols, corr_matrix, max_corr=0.8):
     selected = []
+    blocked_items = []
     for sym in symbols:
-        blocked = False
+        is_blocked = False
+        blocked_by = None
+        blocked_corr = None
         for kept in selected:
             corr = corr_matrix.get(sym, {}).get(kept, 0.0)
             if corr > max_corr:
-                blocked = True
+                is_blocked = True
+                blocked_by = kept
+                blocked_corr = corr
                 break
-        if not blocked:
+        if not is_blocked:
             selected.append(sym)
+        else:
+            blocked_items.append(
+                {
+                    "symbol": sym,
+                    "blocked_by": blocked_by,
+                    "corr": float(blocked_corr) if blocked_corr is not None else 0.0,
+                }
+            )
+    return selected, blocked_items
+
+
+def _filter_by_corr(symbols, corr_matrix, max_corr=0.8):
+    selected, _ = _filter_by_corr_details(symbols, corr_matrix, max_corr=max_corr)
     return selected
 
 
@@ -98,14 +116,15 @@ def _weights_risk_budget(symbols, selected, return_map):
 
 
 def allocate_weights_with_method(symbols, corr_matrix, return_map=None, max_corr=0.8, weight_method="equal"):
-    selected = _filter_by_corr(symbols, corr_matrix, max_corr=max_corr)
+    selected, blocked = _filter_by_corr_details(symbols, corr_matrix, max_corr=max_corr)
     if not selected:
         selected = list(symbols)
+        blocked = []
 
     method = str(weight_method or "equal").lower()
     if method == "risk_budget":
         weights, vol_map = _weights_risk_budget(symbols, selected, return_map or {})
-        return weights, selected, {"method": "risk_budget", "volatility": vol_map}
+        return weights, selected, {"method": "risk_budget", "volatility": vol_map, "blocked_by_corr": blocked}
 
     weights = _weights_equal(symbols, selected)
-    return weights, selected, {"method": "equal", "volatility": {}}
+    return weights, selected, {"method": "equal", "volatility": {}, "blocked_by_corr": blocked}

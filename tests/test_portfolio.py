@@ -21,6 +21,24 @@ class PortfolioTest(unittest.TestCase):
         self.assertAlmostEqual(weights["B"], 0.0)
         self.assertAlmostEqual(weights["C"], 0.5)
 
+    def test_allocate_weights_meta_blocked(self):
+        symbols = ["A", "B", "C"]
+        corr = {
+            "A": {"A": 1.0, "B": 0.95, "C": 0.2},
+            "B": {"A": 0.95, "B": 1.0, "C": 0.1},
+            "C": {"A": 0.2, "B": 0.1, "C": 1.0},
+        }
+        _, selected, meta = allocate_weights_with_method(
+            symbols=symbols,
+            corr_matrix=corr,
+            return_map={},
+            max_corr=0.8,
+            weight_method="equal",
+        )
+        self.assertEqual(selected, ["A", "C"])
+        self.assertTrue(meta.get("blocked_by_corr"))
+        self.assertEqual(meta["blocked_by_corr"][0]["symbol"], "B")
+
     def test_build_corr_matrix(self):
         ret = {"A": [0.1, 0.2, 0.3], "B": [0.2, 0.4, 0.6]}
         matrix = build_corr_matrix(ret)
