@@ -1,6 +1,8 @@
-﻿import csv
+import csv
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from engine.market_scheduler import is_market_open
 
 
 class DataEngine:
@@ -34,7 +36,7 @@ class DataEngine:
     def get_price_series(self, symbol):
         return [b["close"] for b in self.get_bars(symbol)]
 
-    def validate_bars(self, bars):
+    def validate_bars(self, bars, schedule=None):
         report = {
             "total": len(bars),
             "missing": 0,
@@ -44,7 +46,9 @@ class DataEngine:
         if not bars:
             report["missing"] = 0
             return report
-        # count missing datetimes (simple check by gaps in minutes)
+
+        # Count missing bars by minute. When schedule is provided, only count
+        # minutes expected to be open (ignore lunch breaks and closed sessions).
         try:
             prev = datetime.strptime(bars[0]["datetime"], "%Y-%m-%d %H:%M")
             miss = 0
@@ -52,7 +56,14 @@ class DataEngine:
                 cur = datetime.strptime(b["datetime"], "%Y-%m-%d %H:%M")
                 delta = (cur - prev).total_seconds() / 60.0
                 if delta > 1:
-                    miss += int(delta - 1)
+                    if schedule is None:
+                        miss += int(delta - 1)
+                    else:
+                        probe = prev + timedelta(minutes=1)
+                        while probe < cur:
+                            if is_market_open(probe, schedule):
+                                miss += 1
+                            probe += timedelta(minutes=1)
                 prev = cur
             report["missing"] = miss
         except Exception:

@@ -121,9 +121,10 @@ def main(symbol_override=None, output_dir="output"):
         config.get("monitor", {}).get("alert_file", "logs/alerts.log"),
         config.get("monitor", {}).get("webhook_url", ""),
     )
+    schedule = load_market_schedule(config)
 
     bars = data.get_bars(symbol)
-    data_report = data.validate_bars(bars)
+    data_report = data.validate_bars(bars, schedule=schedule)
     data.write_data_report(data_report, os.path.join(output_dir, "data_quality_report.txt"))
     ok, dq_errors, dq_warnings = evaluate_data_quality(data_report, config.get("data_quality", {}))
     for w in dq_warnings:
@@ -177,7 +178,6 @@ def main(symbol_override=None, output_dir="output"):
 
     trade_start = parse_time(strategy_cfg.get("trade_start", ""))
     trade_end = parse_time(strategy_cfg.get("trade_end", ""))
-    schedule = load_market_schedule(config)
 
     risk_cfg = config["risk"]
     risk = RiskManager(

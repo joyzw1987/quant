@@ -547,8 +547,8 @@ def _normalize_tune_cfg(tune_cfg):
     return tune_cfg
 
 
-def _build_dq_report(bars):
-    return DataEngine().validate_bars(bars)
+def _build_dq_report(bars, schedule=None):
+    return DataEngine().validate_bars(bars, schedule=schedule)
 
 
 def get_no_new_data_error_threshold(cfg):
@@ -703,7 +703,7 @@ def main():
                 last_bar_time_seen = newest_bar_time
 
             bars_for_quality = _read_bars(data_out)
-            dq_report = _build_dq_report(bars_for_quality)
+            dq_report = _build_dq_report(bars_for_quality, schedule=schedule)
             ok_dq, dq_errors, dq_warnings = evaluate_data_quality(dq_report, cfg.get("data_quality", {}))
             for w in dq_warnings:
                 print(f"[SIM_LIVE][WARN] {w}")
