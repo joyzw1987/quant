@@ -232,6 +232,8 @@ python e2e_regression.py --symbol M2609 --quick --output-dir output
 
 ## 2. CTP 对接说明
 - 参考 `docs/ctp_checklist.md`
+- 运行手册（启动/停止/故障恢复）：`docs/runbook.md`
+- 发布策略（dev/staging/main + tag + 回滚）：`docs/release_strategy.md`
 
 ## 3. 常用输出
 - `output/performance.json` 回测指标
