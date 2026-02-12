@@ -3,6 +3,11 @@
 本项目支持回测、纸面模拟（paper）、批量回测报告、桌面实时监控，并预留了 CTP 接口对接框架。
 
 ## 0. 快速开始
+初始化环境（Windows PowerShell）：
+```
+powershell -ExecutionPolicy Bypass -File scripts/setup_env.ps1
+```
+
 回测：
 ```
 python main.py
@@ -27,6 +32,11 @@ python ctp_runner.py
 方式 A-0：CTP 配置自检（不连接）
 ```
 python ctp_prepare.py
+```
+
+方式 A-1：CTP 健康检查（最小连通性）
+```
+python run.py --mode ctp_health
 ```
 
 方式 B：统一入口
@@ -56,6 +66,10 @@ python run.py --mode sim
 模拟交易 + 实时界面：
 ```
 python run.py --mode sim_gui --auto-start
+```
+界面 + 自动启动实时模拟（推荐）：
+```
+python run.py --mode sim_gui --auto-start-live
 ```
 准实时轮询模拟（自动抓取增量数据 + 自动回测循环）：
 ```

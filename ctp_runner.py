@@ -3,6 +3,7 @@ import time
 
 from engine.gateway_ctp import CtpMarketDataGateway, CtpTradeGateway
 from engine.ctp_loader import prepare_ctp_sdk
+from engine.ctp_adapter import CtpAdapter
 from engine.alert_manager import AlertManager
 from engine.adapter_loader import load_adapter
 from engine.config_validator import validate_config, report_validation
@@ -29,7 +30,7 @@ def main():
     if not simulate and sdk_path:
         prepare_ctp_sdk(sdk_path)
 
-    adapter = load_adapter(cfg)
+    adapter = load_adapter(cfg) or CtpAdapter(ctp)
     md = CtpMarketDataGateway(adapter.create_md_api() if adapter else None)
     td = CtpTradeGateway(adapter.create_td_api() if adapter else None)
 

@@ -20,4 +20,8 @@ def load_adapter(config):
     cls = getattr(module, adapter_class, None)
     if cls is None:
         raise RuntimeError(f"Adapter class not found: {adapter_class}")
-    return cls()
+    ctp_cfg = ctp
+    try:
+        return cls(ctp_cfg)
+    except TypeError:
+        return cls()

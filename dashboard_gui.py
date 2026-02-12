@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 import subprocess
 import sys
@@ -31,26 +31,29 @@ class MonitorUI:
     def __init__(self, root, default_symbol=None, auto_start=False, auto_start_live=False):
         self.root = root
         self.root.title("量化实时监控")
-        self.root.geometry("1180x760")
+        self.root.geometry("1240x780")
 
         self.runtime_path = os.path.join("state", "runtime_state.json")
         self.perf_path = os.path.join("output", "performance.json")
         self.config_path = "config.json"
+        self.cfg = _read_json(self.config_path)
+
         self.worker = None
         self.fetch_worker = None
         self.portfolio_worker = None
         self.live_worker = None
         self.live_proc = None
+
         self.worker_error = None
         self.fetch_error = None
         self.portfolio_error = None
         self.live_error = None
+
         self.live_output = ""
         self.live_stopping = False
         self.last_runtime_ts = ""
         self.last_trade_key = ""
 
-        self.cfg = _read_json(self.config_path)
         if not default_symbol:
             default_symbol = self.cfg.get("symbol", "M2609")
 
@@ -59,6 +62,8 @@ class MonitorUI:
         self.var_days = tk.StringVar(value="20")
         self.var_live_interval = tk.StringVar(value="5")
         self.var_live_cycles = tk.StringVar(value="0")
+        self.var_ignore_market_hours = tk.BooleanVar(value=True)
+
         self.var_status = tk.StringVar(value="空闲")
         self.var_policy = tk.StringVar(value="-")
         self.var_time = tk.StringVar(value="-")
@@ -83,6 +88,7 @@ class MonitorUI:
         self._update_policy_text()
         self._poll()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
         if auto_start_live:
             self._start_live_run()
         elif auto_start:
@@ -122,6 +128,8 @@ class MonitorUI:
 
         ttk.Label(top, text="轮次(0=持续)").pack(side=tk.LEFT)
         ttk.Entry(top, width=8, textvariable=self.var_live_cycles).pack(side=tk.LEFT, padx=(6, 10))
+
+        ttk.Checkbutton(top, text="忽略交易时段", variable=self.var_ignore_market_hours).pack(side=tk.LEFT, padx=(0, 10))
 
         self.btn_live_start = ttk.Button(top, text="启动模拟盘", command=self._start_live_run)
         self.btn_live_start.pack(side=tk.LEFT, padx=(0, 6))
@@ -168,7 +176,7 @@ class MonitorUI:
         self.trade_table = ttk.Treeview(left, columns=columns, show="headings", height=18)
         for col in columns:
             self.trade_table.heading(col, text=col)
-            width = 120 if col == "平仓时间" else 90
+            width = 140 if col == "平仓时间" else 90
             self.trade_table.column(col, width=width, anchor=tk.CENTER)
         self.trade_table.pack(fill=tk.BOTH, expand=True)
 
@@ -196,6 +204,13 @@ class MonitorUI:
             "force_close": "强平",
             "finished": "结束",
             "tick": "行情",
+            "gate_block": "门槛阻断",
+            "sim_live_cycle_start": "模拟盘周期开始",
+            "sim_live_cycle_done": "模拟盘周期完成",
+            "sim_live_sleeping": "模拟盘等待中",
+            "sim_live_finished": "模拟盘结束",
+            "sim_live_no_new_data": "无新数据",
+            "sim_live_fetch_failed": "抓数失败",
         }
         return mapping.get(event, str(event))
 
@@ -239,7 +254,7 @@ class MonitorUI:
         ok, reason = self._is_source_allowed(source)
         if not ok:
             self.var_status.set("已拦截")
-            self._append_log(f"抓取被阻断：{reason}")
+            self._append_log(f"抓取被拦截：{reason}")
             return
 
         self.fetch_error = None
@@ -367,8 +382,9 @@ class MonitorUI:
                     str(interval),
                     "--max-cycles",
                     str(cycles),
-                    "--ignore-market-hours",
                 ]
+                if self.var_ignore_market_hours.get():
+                    cmd.append("--ignore-market-hours")
                 self.live_proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -411,12 +427,15 @@ class MonitorUI:
         self.var_trades.set(str(runtime.get("trades", 0)))
         self.var_halt_reason.set(str(runtime.get("halt_reason") or "-"))
         self.var_gate_reason.set(str(runtime.get("gate_reason") or "-"))
+
         params = runtime.get("strategy_params") or {}
         if isinstance(params, dict) and params:
             text = (
-                f"{params.get('name','-')} "
-                f"f={params.get('fast','-')} s={params.get('slow','-')} "
-                f"m={params.get('mode','-')} d={params.get('min_diff','-')}"
+                f"{params.get('name', '-')} "
+                f"f={params.get('fast', '-')} "
+                f"s={params.get('slow', '-')} "
+                f"m={params.get('mode', '-')} "
+                f"d={params.get('min_diff', '-')}"
             )
             self.var_strategy_params.set(text)
 
@@ -431,7 +450,7 @@ class MonitorUI:
 
         trade = runtime.get("last_trade")
         if isinstance(trade, dict):
-            key = f"{trade.get('exit_time','')}_{trade.get('pnl','')}_{trade.get('direction','')}"
+            key = f"{trade.get('exit_time', '')}_{trade.get('pnl', '')}_{trade.get('direction', '')}"
             if key and key != self.last_trade_key:
                 self.last_trade_key = key
                 self.trade_table.insert(
@@ -447,8 +466,7 @@ class MonitorUI:
                     ),
                 )
                 if len(self.trade_table.get_children()) > 50:
-                    children = self.trade_table.get_children()
-                    self.trade_table.delete(children[-1])
+                    self.trade_table.delete(self.trade_table.get_children()[-1])
 
     def _update_from_performance(self):
         perf = _read_json(self.perf_path)
@@ -461,8 +479,7 @@ class MonitorUI:
     def _update_from_portfolio(self):
         portfolio_cfg = self.cfg.get("portfolio", {})
         portfolio_dir = portfolio_cfg.get("output_dir", os.path.join("output", "portfolio"))
-        summary_path = os.path.join(portfolio_dir, "portfolio_summary.json")
-        summary = _read_json(summary_path)
+        summary = _read_json(os.path.join(portfolio_dir, "portfolio_summary.json"))
         if not summary:
             return
         self.var_portfolio_pnl.set(_format_num(summary.get("total_pnl")))
@@ -509,8 +526,7 @@ class MonitorUI:
             self.btn_live_start.configure(state=tk.NORMAL)
             self.btn_live_stop.configure(state=tk.DISABLED)
             if self.live_output:
-                tail = self.live_output.splitlines()[-20:]
-                for line in tail:
+                for line in self.live_output.splitlines()[-20:]:
                     self._append_log(line)
             if self.live_error:
                 self.var_status.set("模拟盘失败")

@@ -40,6 +40,13 @@ def run_ctp(config):
     ctp_main()
 
 
+def run_ctp_health(config):
+    from ctp_health_check import main as ctp_health_main
+
+    print(f"[RUN] mode=ctp_health symbol={config.get('symbol', '')}")
+    ctp_health_main()
+
+
 def run_portfolio():
     from portfolio_runner import main_portfolio
 
@@ -90,7 +97,18 @@ def main():
     parser.add_argument(
         "--mode",
         default=None,
-        choices=["sim", "sim_gui", "sim_live", "ctp", "research_cycle", "portfolio", "all", "paper_check", "e2e"],
+        choices=[
+            "sim",
+            "sim_gui",
+            "sim_live",
+            "ctp",
+            "ctp_health",
+            "research_cycle",
+            "portfolio",
+            "all",
+            "paper_check",
+            "e2e",
+        ],
     )
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--output-dir", default="output")
@@ -146,6 +164,12 @@ def main():
         errors, warnings = validate_config(config, mode="ctp")
         report_validation(errors, warnings)
         run_ctp(config)
+        return
+
+    if mode == "ctp_health":
+        errors, warnings = validate_config(config, mode="ctp")
+        report_validation(errors, warnings)
+        run_ctp_health(config)
         return
 
     if mode == "research_cycle":
