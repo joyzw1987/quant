@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import os
 import subprocess
@@ -8,8 +9,12 @@ from datetime import datetime
 
 from engine.alert_manager import AlertManager
 from engine.config_validator import report_validation, validate_config
+from engine.cost_model import build_cost_model
+from engine.execution_sim import SimExecution
 from engine.market_scheduler import is_market_open, load_market_schedule, next_market_open
+from engine.risk import RiskManager
 from engine.runtime_state import RuntimeState
+from engine.strategy_factory import create_strategy
 from main import main as backtest_main
 
 
@@ -54,6 +59,324 @@ def _read_latest_bar_time(path):
         return lines[-1].split(",")[0]
     except Exception:
         return ""
+
+
+def _read_bars(path):
+    if not os.path.exists(path):
+        return []
+    bars = []
+    with open(path, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            normalized = {(k or "").replace("\ufeff", ""): v for k, v in row.items()}
+            bars.append(
+                {
+                    "datetime": normalized["datetime"],
+                    "open": float(normalized["open"]),
+                    "high": float(normalized["high"]),
+                    "low": float(normalized["low"]),
+                    "close": float(normalized["close"]),
+                }
+            )
+    return bars
+
+
+def _parse_hhmm(value):
+    if not value:
+        return None
+    text = str(value).strip()
+    if ":" not in text:
+        return None
+    hh, mm = text.split(":", 1)
+    if not hh.isdigit() or not mm.isdigit():
+        return None
+    h, m = int(hh), int(mm)
+    if h < 0 or h > 23 or m < 0 or m > 59:
+        return None
+    return h, m
+
+
+def _in_trade_window(bar_dt, start_hm, end_hm):
+    if start_hm is None and end_hm is None:
+        return True
+    cur = bar_dt.hour * 60 + bar_dt.minute
+    if start_hm is not None:
+        s = start_hm[0] * 60 + start_hm[1]
+        if cur < s:
+            return False
+    if end_hm is not None:
+        e = end_hm[0] * 60 + end_hm[1]
+        if cur > e:
+            return False
+    return True
+
+
+class ContinuousPaperSession:
+    def __init__(self, cfg, symbol, output_dir):
+        self.cfg = cfg
+        self.symbol = symbol
+        self.output_dir = output_dir
+        self.strategy_cfg = cfg.get("strategy", {})
+        self.strategy = create_strategy(self.strategy_cfg)
+
+        risk_cfg = cfg["risk"]
+        self.risk = RiskManager(
+            stop_loss_percentage=risk_cfg["stop_loss_percentage"],
+            daily_loss_limit=risk_cfg["daily_loss_limit"],
+            max_drawdown=risk_cfg["max_drawdown"],
+            max_drawdown_pct=risk_cfg.get("max_drawdown_pct"),
+            max_consecutive_losses=risk_cfg["max_consecutive_losses"],
+            risk_per_trade=risk_cfg["risk_per_trade"],
+            atr_period=risk_cfg["atr_period"],
+            atr_multiplier=risk_cfg["atr_multiplier"],
+            take_profit_multiplier=risk_cfg["take_profit_multiplier"],
+            max_position_size=risk_cfg.get("max_position_size"),
+            max_orders_per_day=risk_cfg.get("max_orders_per_day"),
+            min_seconds_between_orders=risk_cfg.get("min_seconds_between_orders", 0),
+            max_total_position=risk_cfg.get("max_total_position"),
+            max_symbol_position=risk_cfg.get("max_symbol_position"),
+            max_total_notional=risk_cfg.get("max_total_notional"),
+            max_symbol_notional=risk_cfg.get("max_symbol_notional"),
+            max_total_exposure_pct=risk_cfg.get("max_total_exposure_pct"),
+            max_symbol_exposure_pct=risk_cfg.get("max_symbol_exposure_pct"),
+            max_slippage=risk_cfg.get("max_slippage"),
+            loss_streak_reduce_ratio=risk_cfg.get("loss_streak_reduce_ratio", 0.0),
+            loss_streak_min_multiplier=risk_cfg.get("loss_streak_min_multiplier", 0.2),
+            volatility_halt_atr=risk_cfg.get("volatility_halt_atr"),
+            volatility_resume_atr=risk_cfg.get("volatility_resume_atr"),
+        )
+
+        self.execution = SimExecution(
+            slippage=cfg["contract"]["slippage"],
+            contract_multiplier=cfg["contract"].get("multiplier", 1),
+            commission_per_contract=cfg["contract"].get("commission_per_contract", 0.0),
+            commission_min=cfg["contract"].get("commission_min", 0.0),
+            fill_ratio_min=cfg["contract"].get("fill_ratio_min", 1.0),
+            fill_ratio_max=cfg["contract"].get("fill_ratio_max", 1.0),
+            cost_model=build_cost_model(cfg),
+        )
+
+        self.initial_capital = cfg["backtest"]["initial_capital"]
+        self.capital = self.initial_capital
+        self.max_trades_per_day = cfg["backtest"]["max_trades_per_day"]
+        self.current_date = None
+        self.daily_trade_count = 0
+        self.last_gate_reason = None
+        self.equity_curve = []
+        self.last_processed_idx = -1
+        self.trade_start = _parse_hhmm(self.strategy_cfg.get("trade_start", ""))
+        self.trade_end = _parse_hhmm(self.strategy_cfg.get("trade_end", ""))
+
+    def _append_equity(self, idx, bar):
+        self.equity_curve.append(
+            {
+                "step": idx,
+                "cash": self.capital,
+                "unrealized": 0.0,
+                "equity": self.capital,
+                "drawdown": 0.0,
+                "datetime": bar["datetime"],
+            }
+        )
+
+    def process_bars(self, bars, start_idx, runtime):
+        processed = 0
+        for idx in range(start_idx, len(bars)):
+            bar = bars[idx]
+            bar_dt = datetime.strptime(bar["datetime"], "%Y-%m-%d %H:%M")
+            bar_date = bar_dt.date()
+            price = bar["close"]
+            processed += 1
+
+            if self.current_date is None or bar_date != self.current_date:
+                self.current_date = bar_date
+                self.daily_trade_count = 0
+                self.risk.on_new_day()
+                if hasattr(self.strategy, "on_new_day"):
+                    self.strategy.on_new_day()
+                runtime.update(
+                    {
+                        "event": "new_day",
+                        "mode": "sim_live",
+                        "symbol": self.symbol,
+                        "trading_day": str(bar_date),
+                        "capital": self.capital,
+                        "position": self.execution.position,
+                        "trades": len(self.execution.trades),
+                    }
+                )
+
+            atr = self.risk.update_atr(bars[: idx + 1])
+            if hasattr(self.risk, "update_volatility_pause"):
+                self.risk.update_volatility_pause(atr)
+
+            runtime.update(
+                {
+                    "event": "tick",
+                    "mode": "sim_live",
+                    "symbol": self.symbol,
+                    "last_step": idx,
+                    "last_bar_time": bar["datetime"],
+                    "last_price": price,
+                    "capital": self.capital,
+                    "position": self.execution.position,
+                    "trades": len(self.execution.trades),
+                    "halt_reason": self.risk.halt_reason,
+                    "gate_reason": self.last_gate_reason,
+                }
+            )
+
+            if self.execution.position is not None:
+                closed, pnl = self.execution.check_exit(price, self.risk, bar_time=bar["datetime"])
+                if closed:
+                    self.capital += pnl
+                    self.risk.update_after_trade(pnl, self.capital)
+                    if hasattr(self.strategy, "on_trade_close"):
+                        self.strategy.on_trade_close(pnl, idx)
+                    runtime.update(
+                        {
+                            "event": "trade_close",
+                            "mode": "sim_live",
+                            "symbol": self.symbol,
+                            "last_step": idx,
+                            "last_bar_time": bar["datetime"],
+                            "last_price": price,
+                            "capital": self.capital,
+                            "position": self.execution.position,
+                            "trades": len(self.execution.trades),
+                            "last_trade": self.execution.trades[-1] if self.execution.trades else None,
+                            "halt_reason": self.risk.halt_reason,
+                        }
+                    )
+                self._append_equity(idx, bar)
+                continue
+
+            if self.daily_trade_count >= self.max_trades_per_day:
+                self.last_gate_reason = "MAX_TRADES_PER_DAY"
+                self._append_equity(idx, bar)
+                continue
+
+            if not _in_trade_window(bar_dt, self.trade_start, self.trade_end):
+                self.last_gate_reason = "OUTSIDE_TRADE_WINDOW"
+                self._append_equity(idx, bar)
+                continue
+
+            if not self.risk.allow_trade():
+                self.last_gate_reason = "RISK_NOT_ALLOWED"
+                self._append_equity(idx, bar)
+                continue
+
+            if atr is not None and atr < self.strategy_cfg.get("min_atr", 0.0):
+                self.last_gate_reason = "MIN_ATR"
+                self._append_equity(idx, bar)
+                continue
+
+            prices = [b["close"] for b in bars[: idx + 1]]
+            signal = self.strategy.generate_signal(prices, step=idx)
+            if signal == 0:
+                self.last_gate_reason = "NO_SIGNAL"
+                self._append_equity(idx, bar)
+                continue
+
+            position_size = self.risk.calc_position_size(self.capital, price, atr)
+            if position_size <= 0:
+                self.last_gate_reason = "POSITION_SIZE_ZERO"
+                self._append_equity(idx, bar)
+                continue
+
+            if hasattr(self.risk, "can_open_order") and not self.risk.can_open_order(position_size):
+                self.last_gate_reason = "RISK_ORDER_LIMIT"
+                self._append_equity(idx, bar)
+                continue
+
+            opened = self.execution.send_order(
+                self.symbol,
+                signal,
+                price,
+                position_size,
+                atr=atr,
+                risk=self.risk,
+                bar_time=bar["datetime"],
+            )
+            if opened:
+                self.last_gate_reason = None
+                self.daily_trade_count += 1
+                if hasattr(self.risk, "record_order"):
+                    self.risk.record_order()
+                runtime.update(
+                    {
+                        "event": "trade_open",
+                        "mode": "sim_live",
+                        "symbol": self.symbol,
+                        "signal": signal,
+                        "last_step": idx,
+                        "last_bar_time": bar["datetime"],
+                        "last_price": price,
+                        "capital": self.capital,
+                        "position": self.execution.position,
+                        "trades": len(self.execution.trades),
+                        "halt_reason": self.risk.halt_reason,
+                    }
+                )
+
+            self._append_equity(idx, bar)
+
+        self.last_processed_idx = len(bars) - 1
+        return processed
+
+    def _compute_max_drawdown(self):
+        peak = None
+        max_dd = 0.0
+        for row in self.equity_curve:
+            eq = float(row.get("equity", row.get("cash", 0.0)))
+            if peak is None or eq > peak:
+                peak = eq
+            dd = peak - eq
+            row["drawdown"] = dd
+            if dd > max_dd:
+                max_dd = dd
+        return max_dd
+
+    def _compute_stats(self):
+        total_trades = len(self.execution.trades)
+        total_pnl = sum(t["pnl"] for t in self.execution.trades)
+        win_trades = sum(1 for t in self.execution.trades if t["pnl"] > 0)
+        win_rate = (win_trades / total_trades * 100.0) if total_trades else 0.0
+        final_capital = self.initial_capital + total_pnl
+        max_drawdown = self._compute_max_drawdown()
+        return {
+            "initial_capital": self.initial_capital,
+            "final_capital": final_capital,
+            "total_trades": total_trades,
+            "win_rate": win_rate,
+            "total_pnl": total_pnl,
+            "max_drawdown": max_drawdown,
+        }
+
+    def flush_outputs(self):
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        with open(os.path.join(self.output_dir, "equity_curve.csv"), "w", newline="", encoding="utf-8") as f:
+            fieldnames = ["step", "cash", "unrealized", "equity", "drawdown", "datetime"]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in self.equity_curve:
+                writer.writerow(row)
+
+        with open(os.path.join(self.output_dir, "trades.csv"), "w", newline="", encoding="utf-8") as f:
+            if self.execution.trades:
+                fieldnames = list(self.execution.trades[0].keys())
+            else:
+                fieldnames = ["direction", "entry_price", "exit_price", "size", "pnl"]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for trade in self.execution.trades:
+                writer.writerow(trade)
+
+        perf = self._compute_stats()
+        with open(os.path.join(self.output_dir, "performance.json"), "w", encoding="utf-8") as f:
+            json.dump(perf, f, ensure_ascii=False, indent=2)
+        return perf
 
 
 def _build_tune_cmd(symbol, tune_cfg):
@@ -208,6 +531,7 @@ def main():
     )
 
     cycle = 0
+    session = None
     while True:
         if use_market_hours:
             while True:
@@ -286,6 +610,86 @@ def main():
                 )
             if newest_bar_time:
                 last_bar_time_seen = newest_bar_time
+
+            if not tune_cfg["enabled"]:
+                if session is None:
+                    session = ContinuousPaperSession(cfg=cfg, symbol=symbol, output_dir=args.output_dir)
+
+                bars = _read_bars(data_out)
+                start_idx = session.last_processed_idx + 1
+                if start_idx >= len(bars):
+                    runtime.update(
+                        {
+                            "event": "sim_live_no_new_data",
+                            "mode": "sim_live",
+                            "cycle": cycle,
+                            "symbol": symbol,
+                            "capital": session.capital,
+                            "position": session.execution.position,
+                            "trades": len(session.execution.trades),
+                            "halt_reason": session.risk.halt_reason,
+                        }
+                    )
+                    print(f"[SIM_LIVE] cycle={cycle} no new bars")
+                else:
+                    processed = session.process_bars(bars=bars, start_idx=start_idx, runtime=runtime)
+                    perf = session.flush_outputs()
+                    strategy_name = session.strategy_cfg.get("name", "ma")
+                    runtime.update(
+                        {
+                            "event": "sim_live_cycle_done",
+                            "mode": "sim_live",
+                            "cycle": cycle,
+                            "symbol": symbol,
+                            "bars_processed": processed,
+                            "capital": session.capital,
+                            "position": session.execution.position,
+                            "trades": len(session.execution.trades),
+                            "halt_reason": session.risk.halt_reason,
+                            "gate_reason": session.last_gate_reason,
+                            "total_pnl": perf.get("total_pnl"),
+                            "win_rate": perf.get("win_rate"),
+                            "total_trades": perf.get("total_trades"),
+                            "strategy_params": {
+                                "name": strategy_name,
+                                "fast": getattr(session.strategy, "fast", None),
+                                "slow": getattr(session.strategy, "slow", None),
+                                "mode": getattr(session.strategy, "mode", None),
+                                "min_diff": getattr(session.strategy, "min_diff", None),
+                            },
+                        }
+                    )
+                    print(
+                        f"[SIM_LIVE] cycle={cycle} incremental done bars={processed} "
+                        f"pnl={perf.get('total_pnl')} trades={perf.get('total_trades')} "
+                        f"position={'HOLD' if session.execution.position else 'FLAT'}"
+                    )
+                if args.max_cycles > 0 and cycle >= args.max_cycles:
+                    runtime.update(
+                        {
+                            "event": "sim_live_finished",
+                            "mode": "sim_live",
+                            "cycle": cycle,
+                            "symbol": symbol,
+                        }
+                    )
+                    print(f"[SIM_LIVE] finished cycles={cycle}")
+                    break
+                runtime.update(
+                    {
+                        "event": "sim_live_sleeping",
+                        "mode": "sim_live",
+                        "cycle": cycle,
+                        "symbol": symbol,
+                        "sleep_sec": interval_sec,
+                        "capital": session.capital,
+                        "position": session.execution.position,
+                        "trades": len(session.execution.trades),
+                        "halt_reason": session.risk.halt_reason,
+                    }
+                )
+                time.sleep(interval_sec)
+                continue
 
             snapshot = None
             tune_changed = False
