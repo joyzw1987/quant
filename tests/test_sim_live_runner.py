@@ -1,4 +1,7 @@
 import unittest
+import tempfile
+import json
+import os
 
 from sim_live_runner import (
     _build_dq_report,
@@ -6,6 +9,7 @@ from sim_live_runner import (
     get_drawdown_alert_threshold,
     get_no_new_data_alert_level,
     get_no_new_data_error_threshold,
+    read_paper_check_status,
 )
 
 
@@ -44,6 +48,33 @@ class SimLiveRunnerTest(unittest.TestCase):
         self.assertEqual(metrics["total_pnl"], 8.0)
         self.assertAlmostEqual(metrics["win_rate"], 66.6666666, places=3)
         self.assertEqual(metrics["runtime_drawdown"], 150.0)
+
+    def test_read_paper_check_status_missing_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status = read_paper_check_status(tmp)
+            self.assertIsNone(status["ok"])
+            self.assertEqual(status["error_count"], 0)
+            self.assertEqual(status["errors"], [])
+
+    def test_read_paper_check_status_ok_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "paper_check_report.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"ok": True, "error_count": 0, "errors": []}, f)
+            status = read_paper_check_status(tmp)
+            self.assertEqual(status["ok"], True)
+            self.assertEqual(status["error_count"], 0)
+            self.assertEqual(status["errors"], [])
+
+    def test_read_paper_check_status_failed_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "paper_check_report.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"error_count": 2, "errors": ["e1", "e2"]}, f)
+            status = read_paper_check_status(tmp)
+            self.assertEqual(status["ok"], False)
+            self.assertEqual(status["error_count"], 2)
+            self.assertEqual(status["errors"], ["e1", "e2"])
 
 
 if __name__ == "__main__":
