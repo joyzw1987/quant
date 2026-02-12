@@ -77,6 +77,12 @@ class ConfigValidatorTest(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertTrue(any("overlaps with" in w for w in warnings))
 
+    def test_monitor_no_new_data_threshold_invalid(self):
+        cfg = self._load()
+        cfg["monitor"]["no_new_data_error_threshold"] = 0
+        errors, _ = validate_config(cfg, mode="paper")
+        self.assertTrue(any("monitor.no_new_data_error_threshold" in e for e in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

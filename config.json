@@ -118,7 +118,8 @@
                     "alert_file":  "logs/alerts.log",
                     "webhook_url":  "",
                     "auto_gui":  true,
-                    "drawdown_alert_threshold":  8000
+                    "drawdown_alert_threshold":  8000,
+                    "no_new_data_error_threshold":  3
                 },
     "cost_model":  {
                        "profiles":  [

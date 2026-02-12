@@ -485,6 +485,20 @@ def _normalize_tune_cfg(tune_cfg):
     return tune_cfg
 
 
+def get_no_new_data_error_threshold(cfg):
+    monitor_cfg = (cfg or {}).get("monitor", {})
+    value = monitor_cfg.get("no_new_data_error_threshold", 3)
+    try:
+        threshold = int(value)
+    except Exception:
+        return 3
+    return max(1, threshold)
+
+
+def get_no_new_data_alert_level(streak, cfg):
+    return "ERROR" if int(streak) >= get_no_new_data_error_threshold(cfg) else "WARN"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Quasi realtime simulation runner")
     parser.add_argument("--symbol", default=None)
@@ -524,6 +538,7 @@ def main():
     schedule = load_market_schedule(cfg)
     use_market_hours = not args.ignore_market_hours
     last_bar_time_seen = _read_latest_bar_time(data_out)
+    no_new_data_streak = 0
 
     print(
         f"[SIM_LIVE] start symbol={symbol} source={args.source} interval={interval_sec}s "
@@ -593,7 +608,10 @@ def main():
             if fetch_text:
                 print(fetch_text)
             newest_bar_time = _read_latest_bar_time(data_out)
+            no_data_marked = False
             if newest_bar_time and newest_bar_time == last_bar_time_seen:
+                no_new_data_streak += 1
+                level = get_no_new_data_alert_level(no_new_data_streak, cfg)
                 runtime.update(
                     {
                         "event": "sim_live_no_new_data",
@@ -601,14 +619,19 @@ def main():
                         "cycle": cycle,
                         "symbol": symbol,
                         "last_bar_time": newest_bar_time,
+                        "no_new_data_streak": no_new_data_streak,
+                        "alert_level": level,
                     }
                 )
                 alert.send_event(
                     event="sim_live_no_new_data",
-                    level="WARN",
+                    level=level,
                     message=f"cycle={cycle} symbol={symbol}",
-                    data={"last_bar_time": newest_bar_time},
+                    data={"last_bar_time": newest_bar_time, "streak": no_new_data_streak},
                 )
+                no_data_marked = True
+            elif newest_bar_time and newest_bar_time != last_bar_time_seen:
+                no_new_data_streak = 0
             if newest_bar_time:
                 last_bar_time_seen = newest_bar_time
 
@@ -668,6 +691,9 @@ def main():
                 bars = bars_for_quality
                 start_idx = session.last_processed_idx + 1
                 if start_idx >= len(bars):
+                    if not no_data_marked:
+                        no_new_data_streak += 1
+                    level = get_no_new_data_alert_level(no_new_data_streak, cfg)
                     runtime.update(
                         {
                             "event": "sim_live_no_new_data",
@@ -678,10 +704,20 @@ def main():
                             "position": session.execution.position,
                             "trades": len(session.execution.trades),
                             "halt_reason": session.risk.halt_reason,
+                            "no_new_data_streak": no_new_data_streak,
+                            "alert_level": level,
                         }
                     )
+                    if not no_data_marked:
+                        alert.send_event(
+                            event="sim_live_no_new_data",
+                            level=level,
+                            message=f"cycle={cycle} symbol={symbol}",
+                            data={"streak": no_new_data_streak, "reason": "no_new_bars_after_merge"},
+                        )
                     print(f"[SIM_LIVE] cycle={cycle} no new bars")
                 else:
+                    no_new_data_streak = 0
                     processed = session.process_bars(bars=bars, start_idx=start_idx, runtime=runtime)
                     perf = session.flush_outputs()
                     strategy_name = session.strategy_cfg.get("name", "ma")

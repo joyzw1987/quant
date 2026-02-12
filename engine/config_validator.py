@@ -244,6 +244,10 @@ def validate_config(config, mode="paper"):
         threshold = monitor.get("drawdown_alert_threshold")
         if not _is_number(threshold) or threshold < 0:
             push_error("monitor.drawdown_alert_threshold must be >= 0.")
+    if monitor and monitor.get("no_new_data_error_threshold") is not None:
+        threshold = monitor.get("no_new_data_error_threshold")
+        if not isinstance(threshold, int) or threshold < 1:
+            push_error("monitor.no_new_data_error_threshold must be an integer >= 1.")
 
     data_quality = config.get("data_quality", {})
     if data_quality:
