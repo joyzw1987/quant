@@ -218,6 +218,9 @@ class ContinuousPaperSession:
         self.last_processed_idx = -1
         self.trade_start = _parse_hhmm(self.strategy_cfg.get("trade_start", ""))
         self.trade_end = _parse_hhmm(self.strategy_cfg.get("trade_end", ""))
+        safety_cfg = cfg.get("safety", {}) or {}
+        self.kill_switch_file = safety_cfg.get("kill_switch_file", "")
+        self.safety_max_daily_loss = safety_cfg.get("max_daily_loss")
 
     def _append_equity(self, idx, bar):
         self.equity_curve.append(
@@ -289,6 +292,53 @@ class ContinuousPaperSession:
                     "runtime_drawdown": metrics["runtime_drawdown"],
                 }
             )
+
+            if self.kill_switch_file and os.path.exists(self.kill_switch_file):
+                self.risk.trigger_halt("KILL_SWITCH")
+                runtime.update(
+                    {
+                        "event": "safety_kill_switch",
+                        "mode": "sim_live",
+                        "symbol": self.symbol,
+                        "last_step": idx,
+                        "last_bar_time": bar["datetime"],
+                        "halt_reason": self.risk.halt_reason,
+                    }
+                )
+
+            if self.safety_max_daily_loss is not None:
+                try:
+                    if self.risk.daily_pnl <= -abs(float(self.safety_max_daily_loss)):
+                        self.risk.trigger_halt("SAFETY_DAILY_LOSS")
+                except Exception:
+                    pass
+
+            if self.execution.position is not None and hasattr(self.risk, "should_force_close") and self.risk.should_force_close():
+                pnl = self.execution.force_close(price, bar_time=bar["datetime"])
+                self.capital += pnl
+                self.risk.update_after_trade(pnl, self.capital)
+                self.risk.force_close_triggered = True
+                metrics = self._runtime_metrics()
+                runtime.update(
+                    {
+                        "event": "force_close",
+                        "mode": "sim_live",
+                        "symbol": self.symbol,
+                        "last_step": idx,
+                        "last_bar_time": bar["datetime"],
+                        "last_price": price,
+                        "capital": self.capital,
+                        "position": self.execution.position,
+                        "trades": len(self.execution.trades),
+                        "last_trade": self.execution.trades[-1] if self.execution.trades else None,
+                        "halt_reason": self.risk.halt_reason,
+                        "total_pnl": metrics["total_pnl"],
+                        "win_rate": metrics["win_rate"],
+                        "runtime_drawdown": metrics["runtime_drawdown"],
+                    }
+                )
+                self._append_equity(idx, bar)
+                continue
 
             if self.execution.position is not None:
                 closed, pnl = self.execution.check_exit(price, self.risk, bar_time=bar["datetime"])

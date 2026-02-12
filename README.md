@@ -438,3 +438,12 @@ Paper 一致性校验（回测结束自动执行）：
   "disable_halt_on_backtest": true
 }
 ```
+
+安全开关（回测与 `sim_live` 均生效）：
+```json
+"safety": {
+  "kill_switch_file": "state/kill.switch",
+  "max_daily_loss": 2000
+}
+```
+说明：创建 `state/kill.switch` 后会触发 `KILL_SWITCH`，策略进入保护模式并禁止新开仓；若存在持仓会优先执行强平。
