@@ -90,6 +90,8 @@ class MonitorUI:
         self.var_gate_reason = tk.StringVar(value="-")
         self.var_strategy_params = tk.StringVar(value="-")
         self.var_paper_check = tk.StringVar(value="-")
+        self.var_no_data_streak = tk.StringVar(value="-")
+        self.var_no_data_level = tk.StringVar(value="-")
 
         self._build_layout()
         self._update_policy_text()
@@ -175,6 +177,8 @@ class MonitorUI:
         self._stat_cell(stats, "门槛结果", self.var_gate_reason, 4, 1)
         self._stat_cell(stats, "当前参数", self.var_strategy_params, 4, 2)
         self._stat_cell(stats, "一致性校验", self.var_paper_check, 4, 3)
+        self._stat_cell(stats, "无新数据连续", self.var_no_data_streak, 4, 4)
+        self._stat_cell(stats, "无新数据级别", self.var_no_data_level, 4, 5)
 
         mid = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         mid.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -446,6 +450,8 @@ class MonitorUI:
             self.var_drawdown.set(_format_num(runtime.get("runtime_drawdown")))
         self.var_halt_reason.set(str(runtime.get("halt_reason") or "-"))
         self.var_gate_reason.set(str(runtime.get("gate_reason") or "-"))
+        self.var_no_data_streak.set(str(runtime.get("no_new_data_streak", "-")))
+        self.var_no_data_level.set(str(runtime.get("alert_level", "-")))
 
         params = runtime.get("strategy_params") or {}
         if isinstance(params, dict) and params:
