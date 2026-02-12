@@ -67,6 +67,16 @@ class ConfigValidatorTest(unittest.TestCase):
         errors, _ = validate_config(cfg, mode="paper")
         self.assertTrue(any("paper_check.strict" in e for e in errors))
 
+    def test_cost_model_overlap_warn(self):
+        cfg = self._load()
+        cfg["cost_model"]["profiles"] = [
+            {"start": "09:00", "end": "11:00", "slippage": 1.0},
+            {"start": "10:30", "end": "12:00", "slippage": 1.0},
+        ]
+        errors, warnings = validate_config(cfg, mode="paper")
+        self.assertEqual(errors, [])
+        self.assertTrue(any("overlaps with" in w for w in warnings))
+
 
 if __name__ == "__main__":
     unittest.main()

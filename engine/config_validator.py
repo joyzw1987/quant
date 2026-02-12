@@ -25,6 +25,13 @@ def _is_time_string(value):
     return 0 <= hour <= 23 and 0 <= minute <= 59
 
 
+def _time_to_minutes(value):
+    if not _is_time_string(value) or value == "":
+        return None
+    hour, minute = value.split(":")
+    return int(hour) * 60 + int(minute)
+
+
 def _is_date_string(value):
     if not isinstance(value, str) or not value:
         return False
@@ -189,6 +196,7 @@ def validate_config(config, mode="paper"):
     cost_model = config.get("cost_model", {})
     if cost_model:
         profiles = cost_model.get("profiles", [])
+        ranges = []
         if profiles is not None and not isinstance(profiles, list):
             push_error("cost_model.profiles must be a list.")
         if isinstance(profiles, list):
@@ -215,6 +223,21 @@ def validate_config(config, mode="paper"):
                 reject_prob = profile.get("reject_prob")
                 if reject_prob is not None and (reject_prob < 0 or reject_prob > 1):
                     push_error(f"cost_model.profiles[{idx}].reject_prob must be between 0 and 1.")
+
+                start_min = _time_to_minutes(profile.get("start", ""))
+                end_min = _time_to_minutes(profile.get("end", ""))
+                if start_min is not None and end_min is not None and start_min < end_min:
+                    ranges.append((idx, start_min, end_min))
+
+        ranges.sort(key=lambda x: x[1])
+        for i in range(1, len(ranges)):
+            prev_idx, _, prev_end = ranges[i - 1]
+            cur_idx, cur_start, _ = ranges[i]
+            if cur_start < prev_end:
+                push_warn(
+                    f"cost_model.profiles[{cur_idx}] overlaps with cost_model.profiles[{prev_idx}] "
+                    "(later profile may be ignored)."
+                )
 
     monitor = config.get("monitor", {})
     if monitor and monitor.get("drawdown_alert_threshold") is not None:
