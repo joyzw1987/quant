@@ -8,6 +8,11 @@
 python main.py
 ```
 
+回测 + 图形界面（集成入口）：
+```
+python main.py --gui
+```
+
 一键更新数据并回测：
 ```
 python run_update_backtest.py --symbol M2609 --days 20 --out data/M2609.csv

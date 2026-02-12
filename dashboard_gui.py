@@ -25,7 +25,7 @@ def _format_num(value):
 
 
 class MonitorUI:
-    def __init__(self, root):
+    def __init__(self, root, default_symbol=None, auto_start=False):
         self.root = root
         self.root.title("Quant Realtime Monitor")
         self.root.geometry("1100x700")
@@ -38,7 +38,8 @@ class MonitorUI:
         self.last_trade_key = ""
 
         cfg = _read_json("config.json")
-        default_symbol = cfg.get("symbol", "M2609")
+        if not default_symbol:
+            default_symbol = cfg.get("symbol", "M2609")
 
         self.var_symbol = tk.StringVar(value=default_symbol)
         self.var_status = tk.StringVar(value="idle")
@@ -54,6 +55,8 @@ class MonitorUI:
 
         self._build_layout()
         self._poll()
+        if auto_start:
+            self._start_run()
 
     def _build_layout(self):
         top = ttk.Frame(self.root, padding=10)
@@ -195,9 +198,9 @@ class MonitorUI:
         self.root.after(400, self._poll)
 
 
-def main():
+def main(default_symbol=None, auto_start=False):
     root = tk.Tk()
-    MonitorUI(root)
+    MonitorUI(root, default_symbol=default_symbol, auto_start=auto_start)
     root.mainloop()
 
 

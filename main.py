@@ -1,6 +1,7 @@
 ﻿import csv
 import json
 import os
+import argparse
 from datetime import datetime, time
 
 from engine.execution_sim import SimExecution
@@ -247,4 +248,16 @@ def main(symbol_override=None, output_dir="output"):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Backtest runner / GUI launcher")
+    parser.add_argument("--symbol", default=None, help="override symbol")
+    parser.add_argument("--output-dir", default="output", help="output directory")
+    parser.add_argument("--gui", action="store_true", help="launch integrated GUI monitor")
+    parser.add_argument("--auto-start", action="store_true", help="auto start backtest in GUI mode")
+    args = parser.parse_args()
+
+    if args.gui:
+        from dashboard_gui import main as gui_main
+
+        gui_main(default_symbol=args.symbol, auto_start=args.auto_start)
+    else:
+        main(symbol_override=args.symbol, output_dir=args.output_dir)
