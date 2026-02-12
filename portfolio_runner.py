@@ -80,6 +80,27 @@ def _period_key(datetime_text, mode):
     return "all"
 
 
+def _resolve_symbols(cfg):
+    portfolio_cfg = cfg.get("portfolio", {}) if isinstance(cfg, dict) else {}
+    symbols = portfolio_cfg.get("symbols")
+    if not isinstance(symbols, list) or not symbols:
+        symbols = cfg.get("symbols") if isinstance(cfg, dict) else None
+    if not isinstance(symbols, list) or not symbols:
+        symbols = [cfg.get("symbol")] if isinstance(cfg, dict) else []
+
+    out = []
+    seen = set()
+    for s in symbols:
+        if not s:
+            continue
+        sym = str(s).strip()
+        if not sym or sym in seen:
+            continue
+        seen.add(sym)
+        out.append(sym)
+    return out
+
+
 def _simulate_portfolio(
     symbols,
     dates,
@@ -146,8 +167,7 @@ def _simulate_portfolio(
 
 def main_portfolio():
     cfg = load_config()
-    symbols = cfg.get("symbols") or [cfg.get("symbol")]
-    symbols = [s for s in symbols if s]
+    symbols = _resolve_symbols(cfg)
     if not symbols:
         raise SystemExit("no symbols configured")
 

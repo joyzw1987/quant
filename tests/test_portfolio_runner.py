@@ -1,9 +1,21 @@
 import unittest
 
-from portfolio_runner import _period_key, _simulate_portfolio
+from portfolio_runner import _period_key, _resolve_symbols, _simulate_portfolio
 
 
 class PortfolioRunnerTest(unittest.TestCase):
+    def test_resolve_symbols_priority(self):
+        cfg = {
+            "symbol": "M2609",
+            "symbols": ["A", "B"],
+            "portfolio": {"symbols": ["X", "Y", "X"]},
+        }
+        self.assertEqual(_resolve_symbols(cfg), ["X", "Y"])
+
+    def test_resolve_symbols_fallback(self):
+        cfg = {"symbol": "M2609", "portfolio": {}}
+        self.assertEqual(_resolve_symbols(cfg), ["M2609"])
+
     def test_period_key(self):
         self.assertEqual(_period_key("2026-02-12 09:00", "none"), "all")
         self.assertTrue(_period_key("2026-02-12 09:00", "weekly").startswith("2026-W"))
@@ -41,4 +53,3 @@ class PortfolioRunnerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
