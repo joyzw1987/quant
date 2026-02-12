@@ -29,6 +29,26 @@ class RunEntryTest(unittest.TestCase):
 
     @patch("run.report_validation")
     @patch("run.validate_config", return_value=([], []))
+    @patch("run.run_paper_check")
+    @patch("run.load_config", return_value={"symbol": "M2609"})
+    def test_mode_paper_check(self, _load, run_paper_check, validate_config, _report):
+        with patch("sys.argv", ["run.py", "--mode", "paper_check"]):
+            run.main()
+        run_paper_check.assert_called_once()
+        validate_config.assert_called_once()
+
+    @patch("run.report_validation")
+    @patch("run.validate_config", return_value=([], []))
+    @patch("run.run_e2e")
+    @patch("run.load_config", return_value={"symbol": "M2609"})
+    def test_mode_e2e(self, _load, run_e2e, validate_config, _report):
+        with patch("sys.argv", ["run.py", "--mode", "e2e"]):
+            run.main()
+        run_e2e.assert_called_once()
+        validate_config.assert_called_once()
+
+    @patch("run.report_validation")
+    @patch("run.validate_config", return_value=([], []))
     @patch("run.run_sim")
     @patch("run.load_config", return_value={"symbol": "M2609"})
     def test_default_mode_sim(self, load_config, run_sim, validate_config, _report):
@@ -42,4 +62,3 @@ class RunEntryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

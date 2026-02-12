@@ -47,6 +47,24 @@ def run_all():
     run_all_main()
 
 
+def run_paper_check(trades_path="output/trades.csv"):
+    import subprocess
+
+    print(f"[RUN] mode=paper_check trades={trades_path}")
+    ret = subprocess.run([sys.executable, "paper_consistency_check.py", "--trades", trades_path], check=False)
+    if ret.returncode != 0:
+        raise SystemExit(ret.returncode)
+
+
+def run_e2e(symbol):
+    import subprocess
+
+    print(f"[RUN] mode=e2e symbol={symbol}")
+    ret = subprocess.run([sys.executable, "e2e_regression.py", "--symbol", symbol, "--quick"], check=False)
+    if ret.returncode != 0:
+        raise SystemExit(ret.returncode)
+
+
 def run_research_cycle(config, symbol=None):
     from research_cycle import main as cycle_main
 
@@ -65,7 +83,7 @@ def main():
     parser.add_argument(
         "--mode",
         default=None,
-        choices=["sim", "sim_gui", "sim_live", "ctp", "research_cycle", "portfolio", "all"],
+        choices=["sim", "sim_gui", "sim_live", "ctp", "research_cycle", "portfolio", "all", "paper_check", "e2e"],
     )
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--output-dir", default="output")
@@ -102,6 +120,18 @@ def main():
         errors, warnings = validate_config(config, mode="paper")
         report_validation(errors, warnings)
         run_all()
+        return
+
+    if mode == "paper_check":
+        errors, warnings = validate_config(config, mode="paper")
+        report_validation(errors, warnings)
+        run_paper_check(trades_path=f"{args.output_dir}/trades.csv")
+        return
+
+    if mode == "e2e":
+        errors, warnings = validate_config(config, mode="paper")
+        report_validation(errors, warnings)
+        run_e2e(symbol=symbol)
         return
 
     if mode == "ctp":

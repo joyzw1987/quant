@@ -41,6 +41,14 @@ python run.py --mode portfolio
 ```
 python run.py --mode all
 ```
+Paper 一致性校验：
+```
+python run.py --mode paper_check
+```
+端到端回归（快速模式）：
+```
+python run.py --mode e2e --symbol M2609
+```
 模拟交易（本地，跑完整策略+风控+撮合）：
 ```
 python run.py --mode sim
@@ -195,6 +203,16 @@ python portfolio_runner.py
 ```
 说明：支持 `portfolio.weight_method=equal/risk_budget`，以及 `portfolio.rebalance=none/weekly/monthly`。
 
+方式 P：Paper 一致性校验（成交与PnL约束）
+```
+python paper_consistency_check.py --trades output/trades.csv
+```
+
+方式 Q：端到端回归（OOS -> 回测 -> 报告）
+```
+python e2e_regression.py --symbol M2609 --quick
+```
+
 ## 2. CTP 对接说明
 - 参考 `docs/ctp_checklist.md`
 
@@ -288,6 +306,29 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   "source": "akshare",
   "fetch_times": ["11:35", "15:05", "23:05"],
   "research_time": "23:20"
+}
+```
+
+交易日历高级配置（临时休市 / 特殊开市时段）：
+```json
+"market_hours": {
+  "sessions": [
+    {"start": "09:00", "end": "11:30"},
+    {"start": "13:30", "end": "15:00"},
+    {"start": "21:00", "end": "23:00"}
+  ],
+  "weekdays": [1, 2, 3, 4, 5],
+  "holidays": {
+    "dates": [],
+    "file": "data/holidays.txt"
+  },
+  "special_closures": [
+    {"date": "2026-10-10", "start": "09:00", "end": "10:00", "reason": "临时停盘"},
+    {"date": "2026-10-11", "reason": "全日休市"}
+  ],
+  "special_sessions": [
+    {"date": "2026-10-12", "start": "10:00", "end": "10:30", "reason": "补开盘"}
+  ]
 }
 ```
 

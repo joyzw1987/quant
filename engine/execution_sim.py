@@ -1,4 +1,5 @@
 ﻿import hashlib
+from engine.execution_base import ExecutionBase
 
 
 def _parse_hhmm(value):
@@ -37,7 +38,7 @@ def _clamp(value, min_value, max_value):
     return max(min_value, min(max_value, value))
 
 
-class SimExecution:
+class SimExecution(ExecutionBase):
     def __init__(
         self,
         slippage=1,
@@ -240,3 +241,6 @@ class SimExecution:
         self.trades.append(trade)
         self.position = None
         return pnl
+
+
+
