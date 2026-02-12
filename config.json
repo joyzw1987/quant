@@ -148,6 +148,10 @@
                                              ],
                         "commercial_ack":  ""
                     },
+    "data_storage":  {
+                         "save_raw":  true,
+                         "raw_root":  "E:/quantData"
+                     },
     "auto_adjust":  {
                         "enabled":  false,
                         "adjust_every_cycles":  5,
