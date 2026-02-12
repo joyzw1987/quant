@@ -116,7 +116,7 @@ python single_report.py --output-dir output
 
 方式 G：合约仪表盘
 ```
-python dashboard.py
+python dashboard.py --output-dir output
 ```
 
 方式 H：桌面实时监控界面（Tkinter）
@@ -400,7 +400,8 @@ Paper 一致性校验（回测结束自动执行）：
 "monitor": {
   "alert_file": "logs/alerts.log",
   "webhook_url": "",
-  "drawdown_alert_threshold": 8000
+  "drawdown_alert_threshold": 8000,
+  "no_new_data_error_threshold": 3
 }
 ```
 
