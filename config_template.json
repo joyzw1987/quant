@@ -1,108 +1,138 @@
-﻿{
-  "symbol": "M2605",
-  "contract": {
-    "multiplier": 10,
-    "commission_per_contract": 1.0,
-    "commission_min": 0.0,
-    "slippage": 1,
-    "min_tick": 1,
-    "fill_ratio_min": 1.0,
-    "fill_ratio_max": 1.0
-  },
-  "risk": {
-    "stop_loss_percentage": 0.02,
-    "daily_loss_limit": 2000,
-    "max_drawdown": 5000,
-    "max_drawdown_pct": null,
-    "max_consecutive_losses": 3,
-    "risk_per_trade": 0.005,
-    "atr_period": 14,
-    "atr_multiplier": 2.2,
-    "take_profit_multiplier": 2.5,
-    "max_position_size": null,
-    "max_orders_per_day": null,
-    "min_seconds_between_orders": 0,
-    "max_total_position": null,
-    "max_symbol_position": null,
-    "max_total_notional": null,
-    "max_symbol_notional": null,
-    "max_total_exposure_pct": null,
-    "max_symbol_exposure_pct": null
-  },
-  "backtest": {
-    "initial_capital": 100000,
-    "max_trades_per_day": 5,
-    "disable_halt_on_backtest": true
-  },
-  "strategy": {
-    "name": "ma",
-    "fast": 5,
-    "slow": 20,
-    "mode": "trend",
-    "min_diff": 1.0,
-    "min_atr": 0.0,
-    "cooldown_bars": 0,
-    "max_consecutive_losses": null,
-    "trend_filter": false,
-    "trend_window": 50,
-    "rsi_period": 14,
-    "rsi_overbought": 70,
-    "rsi_oversold": 30,
-    "trade_start": "",
-    "trade_end": ""
-  },
-  "auto_tune": {
-    "enabled": false,
-    "mode": "daily",
-    "window_bars": 60,
-    "interval_bars": 60,
-    "objective": "pnl_dd",
-    "dd_penalty": 0.5,
-    "min_trades": 1,
-    "candidates": [
-      {"fast": 3, "slow": 8},
-      {"fast": 5, "slow": 20},
-      {"fast": 6, "slow": 15},
-      {"fast": 4, "slow": 12}
-    ]
-  },
-  "market_hours": {
-    "sessions": [
-      {"start": "09:00", "end": "11:30"},
-      {"start": "13:30", "end": "15:00"},
-      {"start": "21:00", "end": "23:00"}
-    ],
-    "holidays": {
-      "dates": [],
-      "file": "data/holidays.txt"
-    }
-  },
-  "plot": {
-    "live": true
-  },
-  "monitor": {
-    "log_file": "logs/runtime.log",
-    "alert_file": "logs/alerts.log",
-    "webhook_url": "",
-    "auto_gui": true
-  },
-  "safety": {
-    "kill_switch_file": "state/kill.switch",
-    "max_daily_loss": null
-  },
-  "ctp": {
-    "broker_id": "",
-    "user_id": "",
-    "password": "",
-    "md_front": "",
-    "td_front": "",
-    "app_id": "",
-    "auth_code": "",
-    "product_info": "",
-    "sdk_path": "C:/ctp_sdk",
-    "simulate": true,
-    "adapter_path": "",
-    "adapter_module": "",
-    "adapter_class": "CtpAdapter"
-  }
+{
+    "symbol":  "M2605",
+    "contract":  {
+                     "multiplier":  10,
+                     "commission_per_contract":  1.0,
+                     "commission_min":  0.0,
+                     "slippage":  1,
+                     "min_tick":  1,
+                     "fill_ratio_min":  1.0,
+                     "fill_ratio_max":  1.0
+                 },
+    "risk":  {
+                 "stop_loss_percentage":  0.02,
+                 "daily_loss_limit":  2000,
+                 "max_drawdown":  5000,
+                 "max_drawdown_pct":  null,
+                 "max_consecutive_losses":  3,
+                 "risk_per_trade":  0.005,
+                 "atr_period":  14,
+                 "atr_multiplier":  2.2,
+                 "take_profit_multiplier":  2.5,
+                 "max_position_size":  null,
+                 "max_orders_per_day":  null,
+                 "min_seconds_between_orders":  0,
+                 "max_total_position":  null,
+                 "max_symbol_position":  null,
+                 "max_total_notional":  null,
+                 "max_symbol_notional":  null,
+                 "max_total_exposure_pct":  null,
+                 "max_symbol_exposure_pct":  null
+             },
+    "backtest":  {
+                     "initial_capital":  100000,
+                     "max_trades_per_day":  5,
+                     "disable_halt_on_backtest":  true
+                 },
+    "strategy":  {
+                     "name":  "ma",
+                     "fast":  5,
+                     "slow":  20,
+                     "mode":  "trend",
+                     "min_diff":  1.0,
+                     "min_atr":  0.0,
+                     "cooldown_bars":  0,
+                     "max_consecutive_losses":  null,
+                     "trend_filter":  false,
+                     "trend_window":  50,
+                     "rsi_period":  14,
+                     "rsi_overbought":  70,
+                     "rsi_oversold":  30,
+                     "trade_start":  "",
+                     "trade_end":  ""
+                 },
+    "auto_tune":  {
+                      "enabled":  false,
+                      "mode":  "daily",
+                      "window_bars":  60,
+                      "interval_bars":  60,
+                      "objective":  "pnl_dd",
+                      "dd_penalty":  0.5,
+                      "min_trades":  1,
+                      "candidates":  [
+                                         {
+                                             "fast":  3,
+                                             "slow":  8
+                                         },
+                                         {
+                                             "fast":  5,
+                                             "slow":  20
+                                         },
+                                         {
+                                             "fast":  6,
+                                             "slow":  15
+                                         },
+                                         {
+                                             "fast":  4,
+                                             "slow":  12
+                                         }
+                                     ]
+                  },
+    "market_hours":  {
+                         "sessions":  [
+                                          {
+                                              "start":  "09:00",
+                                              "end":  "11:30"
+                                          },
+                                          {
+                                              "start":  "13:30",
+                                              "end":  "15:00"
+                                          },
+                                          {
+                                              "start":  "21:00",
+                                              "end":  "23:00"
+                                          }
+                                      ],
+                         "holidays":  {
+                                          "dates":  [
+
+                                                    ],
+                                          "file":  "data/holidays.txt"
+                                      }
+                     },
+    "plot":  {
+                 "live":  true
+             },
+    "monitor":  {
+                    "log_file":  "logs/runtime.log",
+                    "alert_file":  "logs/alerts.log",
+                    "webhook_url":  "",
+                    "auto_gui":  true
+                },
+    "safety":  {
+                   "kill_switch_file":  "state/kill.switch",
+                   "max_daily_loss":  null
+               },
+    "ctp":  {
+                "broker_id":  "",
+                "user_id":  "",
+                "password":  "",
+                "md_front":  "",
+                "td_front":  "",
+                "app_id":  "",
+                "auth_code":  "",
+                "product_info":  "",
+                "sdk_path":  "C:/ctp_sdk",
+                "simulate":  true,
+                "adapter_path":  "",
+                "adapter_module":  "",
+                "adapter_class":  "CtpAdapter"
+            },
+    "data_policy":  {
+                        "mode":  "research",
+                        "approved_sources":  [
+
+                                             ],
+                        "commercial_ack":  ""
+                    }
 }

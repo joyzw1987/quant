@@ -125,7 +125,33 @@ python monthly_report.py
 python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
 ```
 
-## 5. 回测专用风控开关
+## 5. 数据合规模式
+- `research`：个人研究/内部回测模式（默认）。
+- `commercial`：商用模式，只允许 `data_policy.approved_sources` 中列出的数据源。
+
+配置示例（`config.json`）：
+```json
+"data_policy": {
+  "mode": "research",
+  "approved_sources": [],
+  "commercial_ack": ""
+}
+```
+
+商用模式示例：
+```json
+"data_policy": {
+  "mode": "commercial",
+  "approved_sources": ["licensed_vendor"],
+  "commercial_ack": "contract_id: ABC-2026-001"
+}
+```
+
+说明：
+- `data_update.py`、`data_update_merge.py`、`run_update_backtest.py` 已接入该策略。
+- 当前抓取脚本默认数据源参数：`--source akshare`。
+
+## 6. 回测专用风控开关
 ```
 "backtest": {
   "disable_halt_on_backtest": true

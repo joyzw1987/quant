@@ -1,9 +1,17 @@
-﻿import argparse
+import argparse
+import json
 from datetime import datetime
 from pathlib import Path
 
 import akshare as ak
 import pandas as pd
+
+from engine.data_policy import assert_source_allowed
+
+
+def load_config(path="config.json"):
+    with open(path, "r", encoding="utf-8-sig") as f:
+        return json.load(f)
 
 
 def fetch_minutes(symbol: str) -> pd.DataFrame:
@@ -29,7 +37,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--symbol", default="M2609")
     parser.add_argument("--out", default="data/M2609.csv")
+    parser.add_argument("--source", default="akshare")
     args = parser.parse_args()
+
+    cfg = load_config()
+    assert_source_allowed(cfg, args.source)
 
     out_path = Path(args.out)
     new_df = fetch_minutes(args.symbol)
@@ -52,7 +64,7 @@ def main():
     start = combined["datetime"].iloc[0]
     end = combined["datetime"].iloc[-1]
     print(
-        f"[DATA] merged {out_path} rows={len(combined)} symbol={args.symbol} "
+        f"[DATA] source={args.source} merged {out_path} rows={len(combined)} symbol={args.symbol} "
         f"range={start} -> {end} at {datetime.now():%Y-%m-%d %H:%M:%S}"
     )
 

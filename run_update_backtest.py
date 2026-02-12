@@ -15,9 +15,23 @@ def main():
     parser.add_argument("--symbol", default="M2609")
     parser.add_argument("--days", type=int, default=20)
     parser.add_argument("--out", default="data/M2609.csv")
+    parser.add_argument("--source", default="akshare")
     args = parser.parse_args()
 
-    run([sys.executable, "data_update.py", "--symbol", args.symbol, "--days", str(args.days), "--out", args.out])
+    run(
+        [
+            sys.executable,
+            "data_update.py",
+            "--symbol",
+            args.symbol,
+            "--days",
+            str(args.days),
+            "--out",
+            args.out,
+            "--source",
+            args.source,
+        ]
+    )
     run([sys.executable, "main.py"])
 
 

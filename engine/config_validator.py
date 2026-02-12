@@ -1,4 +1,6 @@
-﻿import os
+import os
+
+from engine.data_policy import validate_data_policy
 
 
 def _is_number(value):
@@ -89,6 +91,10 @@ def validate_config(config, mode="paper"):
                 push_error("ctp.sdk_path is required when simulate=false.")
             elif not os.path.exists(sdk_path):
                 push_warn(f"ctp.sdk_path does not exist: {sdk_path}")
+
+    policy_errors, policy_warnings = validate_data_policy(config)
+    errors.extend(policy_errors)
+    warnings.extend(policy_warnings)
 
     return errors, warnings
 
