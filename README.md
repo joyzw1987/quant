@@ -124,7 +124,7 @@ python dashboard.py --output-dir output
 ```
 python dashboard_gui.py
 ```
-说明：界面中可选择 `数据源/source` 并点击 `抓取数据`（受 `data_policy` 白名单约束），再点击 `运行回测` 实时查看行情、资金和交易。界面会显示 `paper` 一致性状态、无新数据连续次数和告警级别。
+说明：界面中可选择 `数据源/source` 并点击 `抓取数据`（受 `data_policy` 白名单约束），再点击 `运行回测` 实时查看行情、资金和交易。界面会显示 `paper` 一致性状态、无新数据连续次数/级别，以及最新告警。
 
 方式 I：报告索引页
 ```
@@ -388,6 +388,7 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   "warn_missing_ratio": 0.2
 }
 ```
+说明：缺口统计会按 `market_hours` 交易时段计算（午休/闭市分钟不计入缺口），减少误报。
 
 Paper 一致性校验（回测结束自动执行）：
 ```json
