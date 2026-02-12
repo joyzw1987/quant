@@ -30,6 +30,17 @@ def build_corr_matrix(return_map):
 
 
 def allocate_weights(symbols, corr_matrix, max_corr=0.8):
+    weights, selected, _ = allocate_weights_with_method(
+        symbols=symbols,
+        corr_matrix=corr_matrix,
+        return_map=None,
+        max_corr=max_corr,
+        weight_method="equal",
+    )
+    return weights, selected
+
+
+def _filter_by_corr(symbols, corr_matrix, max_corr=0.8):
     selected = []
     for sym in symbols:
         blocked = False
@@ -40,9 +51,61 @@ def allocate_weights(symbols, corr_matrix, max_corr=0.8):
                 break
         if not blocked:
             selected.append(sym)
+    return selected
 
+
+def _std(values):
+    n = len(values)
+    if n <= 1:
+        return 0.0
+    m = sum(values) / n
+    v = sum((x - m) ** 2 for x in values) / n
+    return v ** 0.5
+
+
+def _weights_equal(symbols, selected):
+    if not selected:
+        return {sym: 0.0 for sym in symbols}
+    w = 1.0 / len(selected)
+    return {sym: (w if sym in selected else 0.0) for sym in symbols}
+
+
+def _weights_risk_budget(symbols, selected, return_map):
+    if not selected:
+        return {sym: 0.0 for sym in symbols}, {}
+
+    inv_vol_map = {}
+    vol_map = {}
+    for sym in selected:
+        series = [float(v) for v in (return_map or {}).get(sym, [])]
+        vol = _std(series)
+        if vol <= 1e-8:
+            vol = 1e-8
+        vol_map[sym] = vol
+        inv_vol_map[sym] = 1.0 / vol
+
+    total = sum(inv_vol_map.values())
+    if total <= 0:
+        return _weights_equal(symbols, selected), vol_map
+
+    weights = {}
+    for sym in symbols:
+        if sym in inv_vol_map:
+            weights[sym] = inv_vol_map[sym] / total
+        else:
+            weights[sym] = 0.0
+    return weights, vol_map
+
+
+def allocate_weights_with_method(symbols, corr_matrix, return_map=None, max_corr=0.8, weight_method="equal"):
+    selected = _filter_by_corr(symbols, corr_matrix, max_corr=max_corr)
     if not selected:
         selected = list(symbols)
-    weight = 1.0 / len(selected) if selected else 0.0
-    out = {sym: (weight if sym in selected else 0.0) for sym in symbols}
-    return out, selected
+
+    method = str(weight_method or "equal").lower()
+    if method == "risk_budget":
+        weights, vol_map = _weights_risk_budget(symbols, selected, return_map or {})
+        return weights, selected, {"method": "risk_budget", "volatility": vol_map}
+
+    weights = _weights_equal(symbols, selected)
+    return weights, selected, {"method": "equal", "volatility": {}}

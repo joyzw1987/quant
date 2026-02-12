@@ -1,6 +1,6 @@
 import unittest
 
-from engine.portfolio import allocate_weights, build_corr_matrix, pearson_corr
+from engine.portfolio import allocate_weights, allocate_weights_with_method, build_corr_matrix, pearson_corr
 
 
 class PortfolioTest(unittest.TestCase):
@@ -28,7 +28,25 @@ class PortfolioTest(unittest.TestCase):
         self.assertIn("B", matrix)
         self.assertAlmostEqual(matrix["A"]["B"], 1.0, places=6)
 
+    def test_allocate_weights_risk_budget(self):
+        symbols = ["A", "B"]
+        corr = {"A": {"A": 1.0, "B": 0.2}, "B": {"A": 0.2, "B": 1.0}}
+        ret = {
+            "A": [0.01, 0.011, 0.009, 0.01],
+            "B": [0.05, -0.04, 0.06, -0.03],
+        }
+        weights, selected, meta = allocate_weights_with_method(
+            symbols=symbols,
+            corr_matrix=corr,
+            return_map=ret,
+            max_corr=0.8,
+            weight_method="risk_budget",
+        )
+        self.assertEqual(selected, symbols)
+        self.assertGreater(weights["A"], weights["B"])
+        self.assertAlmostEqual(weights["A"] + weights["B"], 1.0, places=6)
+        self.assertEqual(meta["method"], "risk_budget")
+
 
 if __name__ == "__main__":
     unittest.main()
-

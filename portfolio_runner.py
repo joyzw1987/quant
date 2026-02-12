@@ -2,7 +2,7 @@ import csv
 import json
 import os
 
-from engine.portfolio import allocate_weights, build_corr_matrix
+from engine.portfolio import allocate_weights_with_method, build_corr_matrix
 from main import main
 
 
@@ -56,6 +56,7 @@ def main_portfolio():
 
     portfolio_cfg = cfg.get("portfolio", {})
     corr_limit = float(portfolio_cfg.get("max_corr", 0.8))
+    weight_method = str(portfolio_cfg.get("weight_method", "equal")).lower()
     out_dir = portfolio_cfg.get("output_dir", os.path.join("output", "portfolio"))
     os.makedirs(out_dir, exist_ok=True)
 
@@ -83,7 +84,13 @@ def main_portfolio():
         raise SystemExit("no valid symbol results")
 
     corr = build_corr_matrix(returns_map)
-    weights, selected = allocate_weights(symbols, corr, max_corr=corr_limit)
+    weights, selected, weight_meta = allocate_weights_with_method(
+        symbols=symbols,
+        corr_matrix=corr,
+        return_map=returns_map,
+        max_corr=corr_limit,
+        weight_method=weight_method,
+    )
 
     initial_capital = float(cfg.get("backtest", {}).get("initial_capital", 100000))
     combined_pnl = sum(float(perf_map[s].get("total_pnl", 0.0)) * float(weights.get(s, 0.0)) for s in symbols)
@@ -101,6 +108,8 @@ def main_portfolio():
         "symbols": symbols,
         "selected_symbols": selected,
         "max_corr": corr_limit,
+        "weight_method": weight_method,
+        "weight_meta": weight_meta,
         "weights": weights,
         "correlation": corr,
         "initial_capital": initial_capital,
