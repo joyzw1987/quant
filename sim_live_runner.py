@@ -386,7 +386,7 @@ class ContinuousPaperSession:
         paper_errors = check_trades(trades_path)
         paper_report_path = os.path.join(self.output_dir, "paper_check_report.json")
         write_paper_check_report(paper_report_path, build_paper_check_report(trades_path, paper_errors))
-        return perf
+        return perf, paper_errors
 
 
 def _build_tune_cmd(symbol, tune_cfg):
@@ -727,7 +727,7 @@ def main():
                 else:
                     no_new_data_streak = 0
                     processed = session.process_bars(bars=bars, start_idx=start_idx, runtime=runtime)
-                    perf = session.flush_outputs()
+                    perf, paper_errors = session.flush_outputs()
                     strategy_name = session.strategy_cfg.get("name", "ma")
                     runtime.update(
                         {
@@ -753,6 +753,22 @@ def main():
                             },
                         }
                     )
+                    if paper_errors:
+                        runtime.update(
+                            {
+                                "event": "sim_live_paper_check_failed",
+                                "mode": "sim_live",
+                                "cycle": cycle,
+                                "symbol": symbol,
+                                "paper_error_count": len(paper_errors),
+                            }
+                        )
+                        alert.send_event(
+                            event="sim_live_paper_check_failed",
+                            level="ERROR",
+                            message=f"cycle={cycle} symbol={symbol}",
+                            data={"error_count": len(paper_errors), "errors": paper_errors[:5]},
+                        )
                     print(
                         f"[SIM_LIVE] cycle={cycle} incremental done bars={processed} "
                         f"pnl={perf.get('total_pnl')} trades={perf.get('total_trades')} "
