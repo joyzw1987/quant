@@ -61,6 +61,11 @@ class MonitorUI:
         self.var_pnl = tk.StringVar(value="-")
         self.var_win_rate = tk.StringVar(value="-")
         self.var_drawdown = tk.StringVar(value="-")
+        self.var_portfolio_pnl = tk.StringVar(value="-")
+        self.var_portfolio_dd = tk.StringVar(value="-")
+        self.var_portfolio_symbols = tk.StringVar(value="-")
+        self.var_portfolio_method = tk.StringVar(value="-")
+        self.var_portfolio_rebalance = tk.StringVar(value="-")
 
         self._build_layout()
         self._update_policy_text()
@@ -111,6 +116,11 @@ class MonitorUI:
         self._stat_cell(stats, "总盈亏", self.var_pnl, 1, 2)
         self._stat_cell(stats, "胜率", self.var_win_rate, 1, 3)
         self._stat_cell(stats, "最大回撤", self.var_drawdown, 1, 4)
+        self._stat_cell(stats, "组合盈亏", self.var_portfolio_pnl, 2, 0)
+        self._stat_cell(stats, "组合回撤", self.var_portfolio_dd, 2, 1)
+        self._stat_cell(stats, "组合品种", self.var_portfolio_symbols, 2, 2)
+        self._stat_cell(stats, "权重方式", self.var_portfolio_method, 2, 3)
+        self._stat_cell(stats, "再平衡次数", self.var_portfolio_rebalance, 2, 4)
 
         mid = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         mid.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -295,11 +305,25 @@ class MonitorUI:
         self.var_win_rate.set(f"{float(perf.get('win_rate', 0.0)):.2f}%")
         self.var_drawdown.set(_format_num(perf.get("max_drawdown")))
 
+    def _update_from_portfolio(self):
+        portfolio_cfg = self.cfg.get("portfolio", {})
+        portfolio_dir = portfolio_cfg.get("output_dir", os.path.join("output", "portfolio"))
+        summary_path = os.path.join(portfolio_dir, "portfolio_summary.json")
+        summary = _read_json(summary_path)
+        if not summary:
+            return
+        self.var_portfolio_pnl.set(_format_num(summary.get("total_pnl")))
+        self.var_portfolio_dd.set(_format_num(summary.get("max_drawdown")))
+        self.var_portfolio_symbols.set(str(len(summary.get("selected_symbols", []))))
+        self.var_portfolio_method.set(str(summary.get("weight_method", "-")))
+        self.var_portfolio_rebalance.set(str(summary.get("rebalance_events", 0)))
+
     def _poll(self):
         runtime = _read_json(self.runtime_path)
         if runtime:
             self._update_from_runtime(runtime)
         self._update_from_performance()
+        self._update_from_portfolio()
 
         if self.fetch_worker and not self.fetch_worker.is_alive() and self.btn_fetch["state"] == tk.DISABLED:
             self.btn_fetch.configure(state=tk.NORMAL)
