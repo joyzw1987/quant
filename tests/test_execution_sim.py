@@ -1,4 +1,4 @@
-import unittest
+﻿import unittest
 
 from engine.execution_sim import SimExecution
 
@@ -57,6 +57,27 @@ class SimExecutionTest(unittest.TestCase):
         self.assertAlmostEqual(ex.position["size"], 1.0)
         pnl = ex.force_close(101.0)
         self.assertAlmostEqual(pnl, 8.0)
+
+    def test_reject_prob_blocks_order(self):
+        ex = SimExecution(
+            slippage=0,
+            contract_multiplier=10,
+            commission_per_contract=0.0,
+            commission_min=0.0,
+            cost_model={
+                "profiles": [
+                    {
+                        "name": "day",
+                        "start": "09:00",
+                        "end": "15:00",
+                        "reject_prob": 1.0,
+                    }
+                ]
+            },
+        )
+        opened = ex.send_order("M2609", 1, 100.0, 1, bar_time="2026-02-12 09:05")
+        self.assertFalse(opened)
+        self.assertIsNone(ex.position)
 
 
 if __name__ == "__main__":

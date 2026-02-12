@@ -1,216 +1,226 @@
-{
-  "symbol": "M2609",
-  "contract": {
-    "multiplier": 10,
-    "commission_per_contract": 1.0,
-    "commission_min": 0.0,
-    "slippage": 1,
-    "min_tick": 1,
-    "fill_ratio_min": 1.0,
-    "fill_ratio_max": 1.0
-  },
-  "risk": {
-    "stop_loss_percentage": 0.02,
-    "daily_loss_limit": 2000,
-    "max_drawdown": 20000,
-    "max_drawdown_pct": null,
-    "max_consecutive_losses": 3,
-    "risk_per_trade": 0.002,
-    "atr_period": 14,
-    "atr_multiplier": 2.2,
-    "take_profit_multiplier": 2.5,
-    "max_position_size": null,
-    "max_orders_per_day": null,
-    "min_seconds_between_orders": 0,
-    "max_total_position": null,
-    "max_symbol_position": null,
-    "max_total_notional": null,
-    "max_symbol_notional": null,
-    "max_total_exposure_pct": null,
-    "max_symbol_exposure_pct": null
-  },
-  "backtest": {
-    "initial_capital": 100000,
-    "max_trades_per_day": 5,
-    "disable_halt_on_backtest": true
-  },
-  "strategy": {
-    "name": "rsi_ma",
-    "fast": 4,
-    "slow": 28,
-    "mode": "trend",
-    "min_diff": 0.6,
-    "min_atr": 0.0,
-    "cooldown_bars": 0,
-    "max_consecutive_losses": null,
-    "trend_filter": true,
-    "trend_window": 40,
-    "rsi_period": 10,
-    "rsi_overbought": 60,
-    "rsi_oversold": 38,
-    "trade_start": "",
-    "trade_end": ""
-  },
-  "auto_tune": {
-    "enabled": false,
-    "mode": "daily",
-    "window_bars": 60,
-    "interval_bars": 60,
-    "objective": "pnl_dd",
-    "dd_penalty": 0.5,
-    "min_trades": 1,
-    "candidates": [
-      {
-        "fast": 3,
-        "slow": 8
-      },
-      {
-        "fast": 5,
-        "slow": 20
-      },
-      {
-        "fast": 6,
-        "slow": 15
-      },
-      {
-        "fast": 4,
-        "slow": 12
-      }
-    ]
-  },
-  "market_hours": {
-    "sessions": [
-      {
-        "start": "09:00",
-        "end": "11:30"
-      },
-      {
-        "start": "13:30",
-        "end": "15:00"
-      },
-      {
-        "start": "21:00",
-        "end": "23:00"
-      }
-    ],
-    "holidays": {
-      "dates": [],
-      "file": "data/holidays.txt"
-    }
-  },
-  "plot": {
-    "live": true
-  },
-  "monitor": {
-    "log_file": "logs/runtime.log",
-    "alert_file": "logs/alerts.log",
-    "webhook_url": "",
-    "auto_gui": true,
-    "drawdown_alert_threshold": 8000
-  },
-  "cost_model": {
-    "profiles": [
-      {
-        "name": "day",
-        "start": "09:00",
-        "end": "15:00",
-        "slippage": 1.0,
-        "commission_multiplier": 1.0,
-        "fill_ratio_min": 0.95,
-        "fill_ratio_max": 1.0
-      },
-      {
-        "name": "night",
-        "start": "21:00",
-        "end": "23:00",
-        "slippage": 1.5,
-        "commission_multiplier": 1.1,
-        "fill_ratio_min": 0.9,
-        "fill_ratio_max": 1.0
-      }
-    ]
-  },
-  "safety": {
-    "kill_switch_file": "state/kill.switch",
-    "max_daily_loss": null
-  },
-  "ctp": {
-    "broker_id": "",
-    "user_id": "",
-    "password": "",
-    "md_front": "",
-    "td_front": "",
-    "app_id": "",
-    "auth_code": "",
-    "product_info": "",
-    "sdk_path": "C:/ctp_sdk",
-    "simulate": true,
-    "adapter_path": "",
-    "adapter_module": "",
-    "adapter_class": "CtpAdapter",
-    "reconnect": {
-      "max_retries": 10,
-      "base_delay": 1.0,
-      "max_delay": 30.0
-    },
-    "state_path": "state/ctp_state.json",
-    "watchdog": {
-      "enabled": true,
-      "interval_sec": 30,
-      "stale_threshold_sec": 60,
-      "query_positions": true,
-      "query_orders": true
-    }
-  },
-  "data_policy": {
-    "mode": "research",
-    "approved_sources": [],
-    "commercial_ack": ""
-  },
-  "data_storage": {
-    "save_raw": true,
-    "raw_root": "E:/quantData"
-  },
-  "research_cycle": {
-    "enabled": false,
-    "max_days": 120,
-    "min_dataset_days": 60,
-    "holdout_bars": 240,
-    "max_candidates": 400,
-    "dd_penalty": 0.4,
-    "min_trades": 4,
-    "min_holdout_trades": 4,
-    "min_score_improve": 0.0,
-    "require_positive_holdout": false,
-    "apply_best": true,
-    "run_backtest_after": true
-  },
-  "scheduler": {
-    "enabled": false,
-    "task_prefix": "Quant_M2609",
-    "days": "MON,TUE,WED,THU,FRI",
-    "source": "akshare",
-    "fetch_times": [
-      "11:35",
-      "15:05",
-      "23:05"
-    ],
-    "research_time": "23:20"
-  },
-  "auto_adjust": {
-    "enabled": false,
-    "adjust_every_cycles": 5,
-    "train_size": 480,
-    "test_size": 120,
-    "step_size": 120,
-    "fast_min": 3,
-    "fast_max": 10,
-    "slow_min": 10,
-    "slow_max": 60,
-    "slow_step": 2,
-    "dd_penalty": 0.5,
-    "min_positive_windows": 1,
-    "rollback_on_worse": true,
-    "min_improve": 0
-  }
+﻿{
+    "symbol":  "M2609",
+    "contract":  {
+                     "multiplier":  10,
+                     "commission_per_contract":  1.0,
+                     "commission_min":  0.0,
+                     "slippage":  1,
+                     "min_tick":  1,
+                     "fill_ratio_min":  1.0,
+                     "fill_ratio_max":  1.0
+                 },
+    "risk":  {
+                 "stop_loss_percentage":  0.02,
+                 "daily_loss_limit":  2000,
+                 "max_drawdown":  20000,
+                 "max_drawdown_pct":  null,
+                 "max_consecutive_losses":  3,
+                 "risk_per_trade":  0.002,
+                 "atr_period":  14,
+                 "atr_multiplier":  2.2,
+                 "take_profit_multiplier":  2.5,
+                 "max_position_size":  null,
+                 "max_orders_per_day":  null,
+                 "min_seconds_between_orders":  0,
+                 "max_total_position":  null,
+                 "max_symbol_position":  null,
+                 "max_total_notional":  null,
+                 "max_symbol_notional":  null,
+                 "max_total_exposure_pct":  null,
+                 "max_symbol_exposure_pct":  null,
+                 "loss_streak_reduce_ratio":  0,
+                 "loss_streak_min_multiplier":  0.2,
+                 "volatility_halt_atr":  null,
+                 "volatility_resume_atr":  null
+             },
+    "backtest":  {
+                     "initial_capital":  100000,
+                     "max_trades_per_day":  5,
+                     "disable_halt_on_backtest":  true
+                 },
+    "strategy":  {
+                     "name":  "rsi_ma",
+                     "fast":  4,
+                     "slow":  28,
+                     "mode":  "trend",
+                     "min_diff":  0.6,
+                     "min_atr":  0.0,
+                     "cooldown_bars":  0,
+                     "max_consecutive_losses":  null,
+                     "trend_filter":  true,
+                     "trend_window":  40,
+                     "rsi_period":  10,
+                     "rsi_overbought":  60,
+                     "rsi_oversold":  38,
+                     "trade_start":  "",
+                     "trade_end":  ""
+                 },
+    "auto_tune":  {
+                      "enabled":  false,
+                      "mode":  "daily",
+                      "window_bars":  60,
+                      "interval_bars":  60,
+                      "objective":  "pnl_dd",
+                      "dd_penalty":  0.5,
+                      "min_trades":  1,
+                      "candidates":  [
+                                         {
+                                             "fast":  3,
+                                             "slow":  8
+                                         },
+                                         {
+                                             "fast":  5,
+                                             "slow":  20
+                                         },
+                                         {
+                                             "fast":  6,
+                                             "slow":  15
+                                         },
+                                         {
+                                             "fast":  4,
+                                             "slow":  12
+                                         }
+                                     ]
+                  },
+    "market_hours":  {
+                         "sessions":  [
+                                          {
+                                              "start":  "09:00",
+                                              "end":  "11:30"
+                                          },
+                                          {
+                                              "start":  "13:30",
+                                              "end":  "15:00"
+                                          },
+                                          {
+                                              "start":  "21:00",
+                                              "end":  "23:00"
+                                          }
+                                      ],
+                         "holidays":  {
+                                          "dates":  [
+
+                                                    ],
+                                          "file":  "data/holidays.txt"
+                                      }
+                     },
+    "plot":  {
+                 "live":  true
+             },
+    "monitor":  {
+                    "log_file":  "logs/runtime.log",
+                    "alert_file":  "logs/alerts.log",
+                    "webhook_url":  "",
+                    "auto_gui":  true,
+                    "drawdown_alert_threshold":  8000
+                },
+    "cost_model":  {
+                       "profiles":  [
+                                        {
+                                            "name":  "day",
+                                            "start":  "09:00",
+                                            "end":  "15:00",
+                                            "slippage":  1.0,
+                                            "commission_multiplier":  1.0,
+                                            "fill_ratio_min":  0.95,
+                                            "fill_ratio_max":  1.0,
+                                            "reject_prob":  0
+                                        },
+                                        {
+                                            "name":  "night",
+                                            "start":  "21:00",
+                                            "end":  "23:00",
+                                            "slippage":  1.5,
+                                            "commission_multiplier":  1.1,
+                                            "fill_ratio_min":  0.9,
+                                            "fill_ratio_max":  1.0,
+                                            "reject_prob":  0
+                                        }
+                                    ]
+                   },
+    "safety":  {
+                   "kill_switch_file":  "state/kill.switch",
+                   "max_daily_loss":  null
+               },
+    "ctp":  {
+                "broker_id":  "",
+                "user_id":  "",
+                "password":  "",
+                "md_front":  "",
+                "td_front":  "",
+                "app_id":  "",
+                "auth_code":  "",
+                "product_info":  "",
+                "sdk_path":  "C:/ctp_sdk",
+                "simulate":  true,
+                "adapter_path":  "",
+                "adapter_module":  "",
+                "adapter_class":  "CtpAdapter",
+                "reconnect":  {
+                                  "max_retries":  10,
+                                  "base_delay":  1.0,
+                                  "max_delay":  30.0
+                              },
+                "state_path":  "state/ctp_state.json",
+                "watchdog":  {
+                                 "enabled":  true,
+                                 "interval_sec":  30,
+                                 "stale_threshold_sec":  60,
+                                 "query_positions":  true,
+                                 "query_orders":  true
+                             }
+            },
+    "data_policy":  {
+                        "mode":  "research",
+                        "approved_sources":  [
+
+                                             ],
+                        "commercial_ack":  ""
+                    },
+    "data_storage":  {
+                         "save_raw":  true,
+                         "raw_root":  "E:/quantData"
+                     },
+    "research_cycle":  {
+                           "enabled":  false,
+                           "max_days":  120,
+                           "min_dataset_days":  60,
+                           "holdout_bars":  240,
+                           "max_candidates":  400,
+                           "dd_penalty":  0.4,
+                           "min_trades":  4,
+                           "min_holdout_trades":  4,
+                           "min_score_improve":  0.0,
+                           "require_positive_holdout":  false,
+                           "apply_best":  true,
+                           "run_backtest_after":  true
+                       },
+    "scheduler":  {
+                      "enabled":  false,
+                      "task_prefix":  "Quant_M2609",
+                      "days":  "MON,TUE,WED,THU,FRI",
+                      "source":  "akshare",
+                      "fetch_times":  [
+                                          "11:35",
+                                          "15:05",
+                                          "23:05"
+                                      ],
+                      "research_time":  "23:20"
+                  },
+    "auto_adjust":  {
+                        "enabled":  false,
+                        "adjust_every_cycles":  5,
+                        "train_size":  480,
+                        "test_size":  120,
+                        "step_size":  120,
+                        "fast_min":  3,
+                        "fast_max":  10,
+                        "slow_min":  10,
+                        "slow_max":  60,
+                        "slow_step":  2,
+                        "dd_penalty":  0.5,
+                        "min_positive_windows":  1,
+                        "rollback_on_worse":  true,
+                        "min_improve":  0
+                    }
 }

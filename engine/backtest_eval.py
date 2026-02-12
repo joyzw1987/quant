@@ -1,4 +1,4 @@
-from datetime import datetime, time
+﻿from datetime import datetime, time
 
 from engine.backtest_engine import run_backtest
 from engine.cost_model import build_cost_model
@@ -70,6 +70,10 @@ def build_risk(config):
         atr_multiplier=risk_cfg["atr_multiplier"],
         take_profit_multiplier=risk_cfg["take_profit_multiplier"],
         max_orders_per_day=risk_cfg.get("max_orders_per_day"),
+        loss_streak_reduce_ratio=risk_cfg.get("loss_streak_reduce_ratio", 0.0),
+        loss_streak_min_multiplier=risk_cfg.get("loss_streak_min_multiplier", 0.2),
+        volatility_halt_atr=risk_cfg.get("volatility_halt_atr"),
+        volatility_resume_atr=risk_cfg.get("volatility_resume_atr"),
     )
 
 
@@ -113,3 +117,4 @@ def run_once(config, bars, strategy_cfg):
         "trades": int(len(execution.trades)),
         "max_drawdown": float(compute_max_drawdown(result["equity_curve"])),
     }
+

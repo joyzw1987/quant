@@ -1,4 +1,4 @@
-import unittest
+﻿import unittest
 
 from engine.risk import RiskManager
 
@@ -26,6 +26,28 @@ class RiskManagerTest(unittest.TestCase):
         risk.record_order()
         self.assertFalse(risk.can_open_order(2))
         self.assertEqual(risk.halt_reason, "MAX_ORDERS_PER_DAY")
+
+    def test_loss_streak_reduces_position_size(self):
+        risk = RiskManager(
+            risk_per_trade=0.01,
+            atr_multiplier=2.0,
+            loss_streak_reduce_ratio=0.5,
+            loss_streak_min_multiplier=0.2,
+        )
+        base_size = risk.calc_position_size(capital=100000, price=3000, atr=10)
+        risk.update_after_trade(-100, 99900)
+        reduced_size = risk.calc_position_size(capital=100000, price=3000, atr=10)
+        self.assertAlmostEqual(base_size, 50.0)
+        self.assertAlmostEqual(reduced_size, 25.0)
+
+    def test_volatility_pause_and_resume(self):
+        risk = RiskManager(volatility_halt_atr=10.0, volatility_resume_atr=8.0)
+        risk.update_volatility_pause(10.5)
+        self.assertFalse(risk.allow_trade())
+        self.assertEqual(risk.halt_reason, "VOLATILITY_PAUSE")
+
+        risk.update_volatility_pause(7.5)
+        self.assertTrue(risk.allow_trade())
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 import csv
 import json
 import math
@@ -170,6 +170,10 @@ def main(symbol_override=None, output_dir="output"):
         atr_multiplier=risk_cfg["atr_multiplier"],
         take_profit_multiplier=risk_cfg["take_profit_multiplier"],
         max_orders_per_day=risk_cfg.get("max_orders_per_day"),
+        loss_streak_reduce_ratio=risk_cfg.get("loss_streak_reduce_ratio", 0.0),
+        loss_streak_min_multiplier=risk_cfg.get("loss_streak_min_multiplier", 0.2),
+        volatility_halt_atr=risk_cfg.get("volatility_halt_atr"),
+        volatility_resume_atr=risk_cfg.get("volatility_resume_atr"),
     )
 
     execution = SimExecution(
@@ -304,3 +308,4 @@ if __name__ == "__main__":
         gui_main(default_symbol=args.symbol, auto_start=args.auto_start)
     else:
         main(symbol_override=args.symbol, output_dir=args.output_dir)
+

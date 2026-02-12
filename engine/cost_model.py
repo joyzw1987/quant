@@ -1,4 +1,4 @@
-def build_cost_model(config):
+﻿def build_cost_model(config):
     contract = config.get("contract", {})
     model = config.get("cost_model") or {}
     profiles = model.get("profiles") or []
@@ -15,6 +15,7 @@ def build_cost_model(config):
                 "commission_multiplier": item.get("commission_multiplier", 1.0),
                 "fill_ratio_min": item.get("fill_ratio_min", contract.get("fill_ratio_min", 1.0)),
                 "fill_ratio_max": item.get("fill_ratio_max", contract.get("fill_ratio_max", 1.0)),
+                "reject_prob": item.get("reject_prob", 0.0),
             }
         )
     return {"profiles": normalized}

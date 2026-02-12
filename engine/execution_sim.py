@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 
 
 def _parse_hhmm(value):
@@ -70,6 +70,7 @@ class SimExecution:
             "commission_multiplier": 1.0,
             "fill_ratio_min": float(self.fill_ratio_min),
             "fill_ratio_max": float(self.fill_ratio_max),
+            "reject_prob": 0.0,
         }
         if not self.cost_model:
             return profile
@@ -87,9 +88,12 @@ class SimExecution:
                     profile["fill_ratio_min"] = float(item.get("fill_ratio_min"))
                 if item.get("fill_ratio_max") is not None:
                     profile["fill_ratio_max"] = float(item.get("fill_ratio_max"))
+                if item.get("reject_prob") is not None:
+                    profile["reject_prob"] = float(item.get("reject_prob"))
                 break
         profile["fill_ratio_min"] = _clamp(profile["fill_ratio_min"], 0.0, 1.0)
         profile["fill_ratio_max"] = _clamp(profile["fill_ratio_max"], 0.0, 1.0)
+        profile["reject_prob"] = _clamp(profile["reject_prob"], 0.0, 1.0)
         if profile["fill_ratio_max"] < profile["fill_ratio_min"]:
             profile["fill_ratio_max"] = profile["fill_ratio_min"]
         return profile
@@ -108,6 +112,11 @@ class SimExecution:
             return False
         direction = "LONG" if signal > 0 else "SHORT"
         profile = self._resolve_profile(bar_time)
+
+        reject_key = f"reject|{symbol}|{direction}|{size}|{bar_time}|{profile['name']}"
+        if self._stable_unit(reject_key) < profile["reject_prob"]:
+            return False
+
         fill_ratio = self._pick_fill_ratio(symbol, direction, size, bar_time, profile)
         filled_size = max(0.0, float(size) * float(fill_ratio))
         if filled_size <= 0:

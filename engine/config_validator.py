@@ -1,4 +1,4 @@
-import os
+﻿import os
 
 from engine.data_policy import validate_data_policy
 
@@ -62,6 +62,24 @@ def validate_config(config, mode="paper"):
         stop_loss = risk.get("stop_loss_percentage")
         if not _is_number(stop_loss) or stop_loss < 0 or stop_loss > 1:
             push_error("risk.stop_loss_percentage must be between 0 and 1.")
+
+        loss_ratio = risk.get("loss_streak_reduce_ratio")
+        if loss_ratio is not None and (not _is_number(loss_ratio) or loss_ratio < 0 or loss_ratio > 1):
+            push_error("risk.loss_streak_reduce_ratio must be between 0 and 1.")
+
+        loss_min = risk.get("loss_streak_min_multiplier")
+        if loss_min is not None and (not _is_number(loss_min) or loss_min < 0 or loss_min > 1):
+            push_error("risk.loss_streak_min_multiplier must be between 0 and 1.")
+
+        halt_atr = risk.get("volatility_halt_atr")
+        if halt_atr is not None and (not _is_number(halt_atr) or halt_atr <= 0):
+            push_error("risk.volatility_halt_atr must be > 0.")
+
+        resume_atr = risk.get("volatility_resume_atr")
+        if resume_atr is not None and (not _is_number(resume_atr) or resume_atr < 0):
+            push_error("risk.volatility_resume_atr must be >= 0.")
+        if _is_number(halt_atr) and _is_number(resume_atr) and resume_atr > halt_atr:
+            push_error("risk.volatility_resume_atr must be <= risk.volatility_halt_atr.")
 
     strategy = config.get("strategy", {})
     if strategy:
@@ -148,7 +166,7 @@ def validate_config(config, mode="paper"):
                     push_error(f"cost_model.profiles[{idx}].start must be HH:MM.")
                 if not _is_time_string(profile.get("end", "")):
                     push_error(f"cost_model.profiles[{idx}].end must be HH:MM.")
-                for key in ("slippage", "commission_multiplier", "fill_ratio_min", "fill_ratio_max"):
+                for key in ("slippage", "commission_multiplier", "fill_ratio_min", "fill_ratio_max", "reject_prob"):
                     value = profile.get(key)
                     if value is None:
                         continue
@@ -160,6 +178,9 @@ def validate_config(config, mode="paper"):
                     push_error(f"cost_model.profiles[{idx}].fill_ratio_min must be between 0 and 1.")
                 if fr_max is not None and (fr_max < 0 or fr_max > 1):
                     push_error(f"cost_model.profiles[{idx}].fill_ratio_max must be between 0 and 1.")
+                reject_prob = profile.get("reject_prob")
+                if reject_prob is not None and (reject_prob < 0 or reject_prob > 1):
+                    push_error(f"cost_model.profiles[{idx}].reject_prob must be between 0 and 1.")
 
     monitor = config.get("monitor", {})
     if monitor and monitor.get("drawdown_alert_threshold") is not None:
@@ -177,3 +198,5 @@ def report_validation(errors, warnings):
         for item in errors:
             print(f"[ERROR] {item}")
         raise SystemExit("Config validation failed.")
+
+

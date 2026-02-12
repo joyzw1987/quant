@@ -20,6 +20,10 @@
         max_total_exposure_pct=None,
         max_symbol_exposure_pct=None,
         max_slippage=None,
+        loss_streak_reduce_ratio=0.0,
+        loss_streak_min_multiplier=0.2,
+        volatility_halt_atr=None,
+        volatility_resume_atr=None,
     ):
         self.stop_loss_percentage = stop_loss_percentage
         self.daily_loss_limit = daily_loss_limit
@@ -40,11 +44,16 @@
         self.max_total_exposure_pct = max_total_exposure_pct
         self.max_symbol_exposure_pct = max_symbol_exposure_pct
         self.max_slippage = max_slippage
+        self.loss_streak_reduce_ratio = loss_streak_reduce_ratio
+        self.loss_streak_min_multiplier = loss_streak_min_multiplier
+        self.volatility_halt_atr = volatility_halt_atr
+        self.volatility_resume_atr = volatility_resume_atr
 
         self.daily_pnl = 0.0
         self.consecutive_losses = 0
         self.peak_equity = None
         self.trading_halted = False
+        self.volatility_paused = False
         self.halt_reason = None
         self._atr_values = []
         self.orders_today = 0
@@ -65,7 +74,15 @@
         self.halt_reason = reason
 
     def allow_trade(self):
-        return not self.trading_halted
+        if self.trading_halted:
+            return False
+        if self.volatility_paused:
+            if self.halt_reason in (None, "VOLATILITY_PAUSE"):
+                self.halt_reason = "VOLATILITY_PAUSE"
+            return False
+        if self.halt_reason == "VOLATILITY_PAUSE":
+            self.halt_reason = None
+        return True
 
     def can_open_order(self, size):
         if self.max_position_size is not None and size > self.max_position_size:
@@ -94,10 +111,19 @@
 
     def calc_position_size(self, capital, price, atr=None):
         if atr is None or atr <= 0:
-            return max(0.0, capital / price * 0.1)
-        risk_amount = capital * self.risk_per_trade
-        stop_distance = atr * self.atr_multiplier
-        size = risk_amount / stop_distance
+            size = max(0.0, capital / price * 0.1)
+        else:
+            risk_amount = capital * self.risk_per_trade
+            stop_distance = atr * self.atr_multiplier
+            size = risk_amount / stop_distance
+
+        if self.consecutive_losses > 0 and self.loss_streak_reduce_ratio > 0:
+            multiplier = 1.0 - (self.consecutive_losses * self.loss_streak_reduce_ratio)
+            if self.loss_streak_min_multiplier is not None:
+                multiplier = max(self.loss_streak_min_multiplier, multiplier)
+            multiplier = max(0.0, multiplier)
+            size *= multiplier
+
         return max(0.0, size)
 
     def get_stop_price(self, entry_price, direction, atr=None):
@@ -140,6 +166,29 @@
         if len(self._atr_values) < self.atr_period:
             return None
         return sum(self._atr_values) / len(self._atr_values)
+
+    def update_volatility_pause(self, atr):
+        if self.volatility_halt_atr is None:
+            return self.volatility_paused
+        if atr is None:
+            return self.volatility_paused
+
+        if not self.volatility_paused and atr >= self.volatility_halt_atr:
+            self.volatility_paused = True
+            if not self.trading_halted:
+                self.halt_reason = "VOLATILITY_PAUSE"
+            return True
+
+        if self.volatility_paused:
+            resume_atr = self.volatility_resume_atr
+            if resume_atr is None:
+                resume_atr = self.volatility_halt_atr * 0.8
+            if atr <= resume_atr:
+                self.volatility_paused = False
+                if self.halt_reason == "VOLATILITY_PAUSE":
+                    self.halt_reason = None
+
+        return self.volatility_paused
 
     def update_equity(self, equity):
         if self.peak_equity is None:

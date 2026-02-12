@@ -1,4 +1,4 @@
-{
+﻿{
     "symbol":  "M2605",
     "contract":  {
                      "multiplier":  10,
@@ -27,7 +27,11 @@
                  "max_total_notional":  null,
                  "max_symbol_notional":  null,
                  "max_total_exposure_pct":  null,
-                 "max_symbol_exposure_pct":  null
+                 "max_symbol_exposure_pct":  null,
+                 "loss_streak_reduce_ratio":  0,
+                 "loss_streak_min_multiplier":  0.2,
+                 "volatility_halt_atr":  null,
+                 "volatility_resume_atr":  null
              },
     "backtest":  {
                      "initial_capital":  100000,
@@ -119,7 +123,8 @@
                                             "slippage":  1.0,
                                             "commission_multiplier":  1.0,
                                             "fill_ratio_min":  0.95,
-                                            "fill_ratio_max":  1.0
+                                            "fill_ratio_max":  1.0,
+                                            "reject_prob":  0
                                         },
                                         {
                                             "name":  "night",
@@ -128,7 +133,8 @@
                                             "slippage":  1.5,
                                             "commission_multiplier":  1.1,
                                             "fill_ratio_min":  0.9,
-                                            "fill_ratio_max":  1.0
+                                            "fill_ratio_max":  1.0,
+                                            "reject_prob":  0
                                         }
                                     ]
                    },

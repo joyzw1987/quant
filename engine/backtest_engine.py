@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 
 
 def run_backtest(
@@ -78,6 +78,10 @@ def run_backtest(
             append_equity(step, bar["datetime"])
             continue
 
+        atr = risk.update_atr(bars[: step + 1])
+        if hasattr(risk, "update_volatility_pause"):
+            risk.update_volatility_pause(atr)
+
         if execution.position is not None:
             closed, pnl = execution.check_exit(price, risk, bar_time=bar["datetime"])
             if closed:
@@ -106,12 +110,11 @@ def run_backtest(
             append_equity(step, bar["datetime"])
             continue
 
-        prices = [b["close"] for b in bars[: step + 1]]
-        atr = risk.update_atr(bars[: step + 1])
         if atr is not None and atr < strategy_cfg.get("min_atr", 0.0):
             append_equity(step, bar["datetime"])
             continue
 
+        prices = [b["close"] for b in bars[: step + 1]]
         signal = strategy.generate_signal(prices, step=step)
         if signal == 0:
             append_equity(step, bar["datetime"])
