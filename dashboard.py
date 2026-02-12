@@ -1,4 +1,5 @@
-﻿import json
+﻿import argparse
+import json
 import os
 
 
@@ -30,9 +31,13 @@ def _blocked_rows(items):
     return "".join(rows)
 
 
-def main():
-    perf_path = os.path.join("output", "performance.json")
-    portfolio_path = os.path.join("output", "portfolio", "portfolio_summary.json")
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Build dashboard html")
+    parser.add_argument("--output-dir", default="output")
+    args = parser.parse_args(argv)
+
+    perf_path = os.path.join(args.output_dir, "performance.json")
+    portfolio_path = os.path.join(args.output_dir, "portfolio", "portfolio_summary.json")
     perf = _read_json(perf_path)
     portfolio = _read_json(portfolio_path)
     if not perf and not portfolio:
@@ -63,7 +68,7 @@ def main():
 </body></html>
 """
 
-    out_path = os.path.join("output", "dashboard.html")
+    out_path = os.path.join(args.output_dir, "dashboard.html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"[DASH] saved {out_path}")

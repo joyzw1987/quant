@@ -33,7 +33,7 @@ class DashboardTest(unittest.TestCase):
             old = os.getcwd()
             os.chdir(root)
             try:
-                dashboard.main()
+                dashboard.main([])
             finally:
                 os.chdir(old)
 
