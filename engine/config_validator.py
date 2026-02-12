@@ -50,6 +50,12 @@ def validate_config(config, mode="paper"):
         slippage = contract.get("slippage")
         if slippage is None or not _is_number(slippage) or slippage < 0:
             push_error("contract.slippage must be >= 0.")
+        fill_ratio_min = contract.get("fill_ratio_min")
+        fill_ratio_max = contract.get("fill_ratio_max")
+        if fill_ratio_min is not None and (not _is_number(fill_ratio_min) or fill_ratio_min < 0 or fill_ratio_min > 1):
+            push_error("contract.fill_ratio_min must be between 0 and 1.")
+        if fill_ratio_max is not None and (not _is_number(fill_ratio_max) or fill_ratio_max < 0 or fill_ratio_max > 1):
+            push_error("contract.fill_ratio_max must be between 0 and 1.")
 
     risk = config.get("risk", {})
     if risk:
@@ -127,6 +133,39 @@ def validate_config(config, mode="paper"):
         research_time = scheduler.get("research_time")
         if research_time is not None and not _is_time_string(research_time):
             push_error("scheduler.research_time must be HH:MM.")
+
+    cost_model = config.get("cost_model", {})
+    if cost_model:
+        profiles = cost_model.get("profiles", [])
+        if profiles is not None and not isinstance(profiles, list):
+            push_error("cost_model.profiles must be a list.")
+        if isinstance(profiles, list):
+            for idx, profile in enumerate(profiles):
+                if not isinstance(profile, dict):
+                    push_error(f"cost_model.profiles[{idx}] must be an object.")
+                    continue
+                if not _is_time_string(profile.get("start", "")):
+                    push_error(f"cost_model.profiles[{idx}].start must be HH:MM.")
+                if not _is_time_string(profile.get("end", "")):
+                    push_error(f"cost_model.profiles[{idx}].end must be HH:MM.")
+                for key in ("slippage", "commission_multiplier", "fill_ratio_min", "fill_ratio_max"):
+                    value = profile.get(key)
+                    if value is None:
+                        continue
+                    if not _is_number(value):
+                        push_error(f"cost_model.profiles[{idx}].{key} must be a number.")
+                fr_min = profile.get("fill_ratio_min")
+                fr_max = profile.get("fill_ratio_max")
+                if fr_min is not None and (fr_min < 0 or fr_min > 1):
+                    push_error(f"cost_model.profiles[{idx}].fill_ratio_min must be between 0 and 1.")
+                if fr_max is not None and (fr_max < 0 or fr_max > 1):
+                    push_error(f"cost_model.profiles[{idx}].fill_ratio_max must be between 0 and 1.")
+
+    monitor = config.get("monitor", {})
+    if monitor and monitor.get("drawdown_alert_threshold") is not None:
+        threshold = monitor.get("drawdown_alert_threshold")
+        if not _is_number(threshold) or threshold < 0:
+            push_error("monitor.drawdown_alert_threshold must be >= 0.")
 
     return errors, warnings
 

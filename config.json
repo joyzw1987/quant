@@ -105,7 +105,30 @@
     "log_file": "logs/runtime.log",
     "alert_file": "logs/alerts.log",
     "webhook_url": "",
-    "auto_gui": true
+    "auto_gui": true,
+    "drawdown_alert_threshold": 8000
+  },
+  "cost_model": {
+    "profiles": [
+      {
+        "name": "day",
+        "start": "09:00",
+        "end": "15:00",
+        "slippage": 1.0,
+        "commission_multiplier": 1.0,
+        "fill_ratio_min": 0.95,
+        "fill_ratio_max": 1.0
+      },
+      {
+        "name": "night",
+        "start": "21:00",
+        "end": "23:00",
+        "slippage": 1.5,
+        "commission_multiplier": 1.1,
+        "fill_ratio_min": 0.9,
+        "fill_ratio_max": 1.0
+      }
+    ]
   },
   "safety": {
     "kill_switch_file": "state/kill.switch",
@@ -152,7 +175,7 @@
     "enabled": false,
     "max_days": 120,
     "min_dataset_days": 60,
-        "holdout_bars": 240,
+    "holdout_bars": 240,
     "max_candidates": 400,
     "dd_penalty": 0.4,
     "min_trades": 4,

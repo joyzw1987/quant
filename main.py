@@ -1,24 +1,21 @@
-﻿import csv
-import json
-import os
 import argparse
-from datetime import datetime, time
+import csv
+import json
+import math
+import os
+from datetime import time
 
-from engine.execution_sim import SimExecution
-from engine.strategy_factory import create_strategy
-from engine.risk import RiskManager
-from engine.data_engine import DataEngine
-from engine.logger import Logger
 from engine.alert_manager import AlertManager
-from engine.market_hours import MarketHours
-from engine.param_optimizer import pick_best_params
-from engine.strategy_state import StrategyState
-from engine.runtime_state import RuntimeState
-from engine.config_validator import validate_config, report_validation
 from engine.backtest_engine import run_backtest
-
-
-_gui_started = False
+from engine.config_validator import report_validation, validate_config
+from engine.cost_model import build_cost_model
+from engine.data_engine import DataEngine
+from engine.execution_sim import SimExecution
+from engine.logger import Logger
+from engine.risk import RiskManager
+from engine.runtime_state import RuntimeState
+from engine.strategy_factory import create_strategy
+from engine.strategy_state import StrategyState
 
 
 def load_config(path="config.json"):
@@ -90,6 +87,31 @@ def compute_max_drawdown(equity_curve):
     return max_drawdown
 
 
+def compute_return_series(equity_curve):
+    returns = []
+    prev = None
+    for row in equity_curve:
+        equity = float(row.get("equity", row.get("cash", 0.0)))
+        if prev is not None and prev != 0:
+            returns.append((equity - prev) / prev)
+        prev = equity
+    return returns
+
+
+def compute_sortino(returns):
+    if not returns:
+        return 0.0
+    mean_ret = sum(returns) / len(returns)
+    downside = [r for r in returns if r < 0]
+    if not downside:
+        return 0.0
+    downside_var = sum(r * r for r in downside) / len(downside)
+    downside_std = math.sqrt(downside_var) if downside_var > 0 else 0.0
+    if downside_std == 0:
+        return 0.0
+    return mean_ret / downside_std
+
+
 def main(symbol_override=None, output_dir="output"):
     config = load_config()
     errors, warnings = validate_config(config, mode="paper")
@@ -105,10 +127,6 @@ def main(symbol_override=None, output_dir="output"):
 
     strategy_cfg = config["strategy"]
     strategy = create_strategy(strategy_cfg)
-
-    auto_tune_cfg = config.get("auto_tune", {"enabled": False})
-    last_tune_date = None
-    last_tune_step = None
 
     state_store = StrategyState("state/strategy_state.json")
     last_state = state_store.load()
@@ -126,17 +144,17 @@ def main(symbol_override=None, output_dir="output"):
             rsi_oversold=params.get("rsi_oversold"),
         )
     else:
-        state_store.save_params({
-            "fast": getattr(strategy, "fast", None),
-            "slow": getattr(strategy, "slow", None),
-            "mode": getattr(strategy, "mode", None),
-            "min_diff": getattr(strategy, "min_diff", None),
-        })
+        state_store.save_params(
+            {
+                "fast": getattr(strategy, "fast", None),
+                "slow": getattr(strategy, "slow", None),
+                "mode": getattr(strategy, "mode", None),
+                "min_diff": getattr(strategy, "min_diff", None),
+            }
+        )
 
     trade_start = parse_time(strategy_cfg.get("trade_start", ""))
     trade_end = parse_time(strategy_cfg.get("trade_end", ""))
-
-    # Prefer market_hours in config, keep backward compatibility with legacy schedule.
     schedule_cfg = config.get("market_hours") or config.get("schedule")
     schedule = parse_schedule(schedule_cfg)
 
@@ -151,6 +169,7 @@ def main(symbol_override=None, output_dir="output"):
         atr_period=risk_cfg["atr_period"],
         atr_multiplier=risk_cfg["atr_multiplier"],
         take_profit_multiplier=risk_cfg["take_profit_multiplier"],
+        max_orders_per_day=risk_cfg.get("max_orders_per_day"),
     )
 
     execution = SimExecution(
@@ -158,16 +177,20 @@ def main(symbol_override=None, output_dir="output"):
         contract_multiplier=config["contract"].get("multiplier", 1),
         commission_per_contract=config["contract"].get("commission_per_contract", 0.0),
         commission_min=config["contract"].get("commission_min", 0.0),
+        fill_ratio_min=config["contract"].get("fill_ratio_min", 1.0),
+        fill_ratio_max=config["contract"].get("fill_ratio_max", 1.0),
+        cost_model=build_cost_model(config),
     )
 
     logger = Logger(config.get("monitor", {}).get("log_file", "logs/runtime.log"))
-    alert = AlertManager(config.get("monitor", {}).get("alert_file", "logs/alerts.log"))
+    alert = AlertManager(
+        config.get("monitor", {}).get("alert_file", "logs/alerts.log"),
+        config.get("monitor", {}).get("webhook_url", ""),
+    )
     runtime = RuntimeState("state/runtime_state.json")
 
     initial_capital = config["backtest"]["initial_capital"]
     capital = initial_capital
-    equity_curve = []
-    daily_trade_count = 0
     max_trades_per_day = config["backtest"]["max_trades_per_day"]
 
     def update_runtime(extra=None):
@@ -203,6 +226,10 @@ def main(symbol_override=None, output_dir="output"):
     total_trades, total_pnl, win_rate, avg_win, avg_loss, profit_factor, expectancy = compute_stats(execution.trades)
     final_capital = initial_capital + total_pnl
     max_drawdown = compute_max_drawdown(equity_curve)
+    max_drawdown_pct = (max_drawdown / initial_capital) if initial_capital else 0.0
+    total_return_pct = ((final_capital - initial_capital) / initial_capital * 100.0) if initial_capital else 0.0
+    calmar = (total_return_pct / (max_drawdown_pct * 100.0)) if max_drawdown_pct > 0 else 0.0
+    sortino = compute_sortino(compute_return_series(equity_curve))
 
     with open(os.path.join(output_dir, "equity_curve.csv"), "w", newline="", encoding="utf-8") as f:
         fieldnames = ["step", "cash", "unrealized", "equity", "drawdown", "datetime"]
@@ -230,6 +257,8 @@ def main(symbol_override=None, output_dir="output"):
         "max_drawdown": max_drawdown,
         "profit_factor": profit_factor,
         "sharpe": 0.0,
+        "calmar": calmar,
+        "sortino": sortino,
         "avg_win": avg_win,
         "avg_loss": avg_loss,
         "expectancy": expectancy,
@@ -238,6 +267,20 @@ def main(symbol_override=None, output_dir="output"):
     }
     with open(os.path.join(output_dir, "performance.json"), "w", encoding="utf-8") as f:
         json.dump(performance, f, ensure_ascii=False, indent=2)
+
+    dd_alert_threshold = config.get("monitor", {}).get("drawdown_alert_threshold")
+    if dd_alert_threshold is not None:
+        try:
+            threshold = float(dd_alert_threshold)
+            if max_drawdown >= threshold:
+                alert.send_event(
+                    event="max_drawdown_threshold_reached",
+                    level="WARN",
+                    message=f"symbol={symbol} drawdown={max_drawdown:.2f} threshold={threshold:.2f}",
+                    data={"max_drawdown": max_drawdown, "threshold": threshold, "total_pnl": total_pnl},
+                )
+        except Exception:
+            logger.log("invalid monitor.drawdown_alert_threshold")
 
     print("\n===== PERFORMANCE =====")
     print(f"Initial Capital: {initial_capital}")

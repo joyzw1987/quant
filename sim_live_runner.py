@@ -6,6 +6,7 @@ import sys
 import time
 from datetime import datetime
 
+from engine.alert_manager import AlertManager
 from engine.config_validator import report_validation, validate_config
 from engine.market_scheduler import is_market_open, load_market_schedule, next_market_open
 from engine.runtime_state import RuntimeState
@@ -39,6 +40,20 @@ def _run_fetch(symbol, out_path, source):
         source,
     ]
     return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+
+
+def _read_latest_bar_time(path):
+    if not os.path.exists(path):
+        return ""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            lines = [line.strip() for line in f if line.strip()]
+        if len(lines) <= 1:
+            return ""
+        # csv: datetime,open,high,low,close
+        return lines[-1].split(",")[0]
+    except Exception:
+        return ""
 
 
 def _build_tune_cmd(symbol, tune_cfg):
@@ -177,9 +192,14 @@ def main():
     data_out = args.data_out or f"data/{symbol}.csv"
     interval_sec = max(5, int(args.interval_sec))
     runtime = RuntimeState("state/runtime_state.json")
+    alert = AlertManager(
+        cfg.get("monitor", {}).get("alert_file", "logs/alerts.log"),
+        cfg.get("monitor", {}).get("webhook_url", ""),
+    )
     tune_cfg = _normalize_tune_cfg(_resolve_tune_cfg(cfg, args))
     schedule = load_market_schedule(cfg)
     use_market_hours = not args.ignore_market_hours
+    last_bar_time_seen = _read_latest_bar_time(data_out)
 
     print(
         f"[SIM_LIVE] start symbol={symbol} source={args.source} interval={interval_sec}s "
@@ -236,11 +256,36 @@ def main():
                     "error": message,
                 }
             )
+            alert.send_event(
+                event="sim_live_fetch_failed",
+                level="ERROR",
+                message=f"cycle={cycle} symbol={symbol} source={args.source}",
+                data={"error": message},
+            )
             print(f"[SIM_LIVE] cycle={cycle} fetch failed: {message}")
         else:
             fetch_text = (fetch_ret.stdout or "").strip()
             if fetch_text:
                 print(fetch_text)
+            newest_bar_time = _read_latest_bar_time(data_out)
+            if newest_bar_time and newest_bar_time == last_bar_time_seen:
+                runtime.update(
+                    {
+                        "event": "sim_live_no_new_data",
+                        "mode": "sim_live",
+                        "cycle": cycle,
+                        "symbol": symbol,
+                        "last_bar_time": newest_bar_time,
+                    }
+                )
+                alert.send_event(
+                    event="sim_live_no_new_data",
+                    level="WARN",
+                    message=f"cycle={cycle} symbol={symbol}",
+                    data={"last_bar_time": newest_bar_time},
+                )
+            if newest_bar_time:
+                last_bar_time_seen = newest_bar_time
 
             snapshot = None
             tune_changed = False
@@ -272,6 +317,12 @@ def main():
                             "error": str(exc),
                         }
                     )
+                    alert.send_event(
+                        event="sim_live_baseline_failed",
+                        level="ERROR",
+                        message=f"cycle={cycle} symbol={symbol}",
+                        data={"error": str(exc)},
+                    )
                     print(f"[SIM_LIVE] cycle={cycle} baseline failed: {exc}")
 
             if tune_cycle:
@@ -299,6 +350,12 @@ def main():
                             "symbol": symbol,
                             "error": tune_error,
                         }
+                    )
+                    alert.send_event(
+                        event="sim_live_tune_failed",
+                        level="ERROR",
+                        message=f"cycle={cycle} symbol={symbol}",
+                        data={"error": tune_error},
                     )
                     print(f"[SIM_LIVE] cycle={cycle} tune failed: {tune_error}")
                 else:
@@ -339,6 +396,12 @@ def main():
                         "error": str(exc),
                     }
                 )
+                alert.send_event(
+                    event="sim_live_backtest_failed",
+                    level="ERROR",
+                    message=f"cycle={cycle} symbol={symbol}",
+                    data={"error": str(exc)},
+                )
                 print(f"[SIM_LIVE] cycle={cycle} backtest failed: {exc}")
             else:
                 perf = _read_perf(os.path.join(args.output_dir, "performance.json"))
@@ -362,6 +425,12 @@ def main():
                             "baseline_pnl": baseline_pnl,
                             "new_pnl": current_pnl,
                         }
+                    )
+                    alert.send_event(
+                        event="sim_live_tune_rollback",
+                        level="WARN",
+                        message=f"cycle={cycle} symbol={symbol}",
+                        data={"baseline_pnl": baseline_pnl, "new_pnl": current_pnl},
                     )
                     print(
                         f"[SIM_LIVE] cycle={cycle} rollback tune: baseline_pnl={baseline_pnl} "

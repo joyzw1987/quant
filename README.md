@@ -104,6 +104,7 @@ python index_page.py
 ```
 python daily_weekly_report.py
 ```
+输出：`output/daily_report.txt`、`output/weekly_report.csv`、`output/weekly_report.json`
 
 方式 K：免费分钟数据更新（AKShare）
 ```
@@ -175,6 +176,11 @@ python schedule_tasks.py --action uninstall
 python monthly_report.py
 ```
 
+方式 M-1：参数稳定性热力图（fast/slow）
+```
+python param_heatmap.py --symbol M2609 --fast-min 3 --fast-max 12 --slow-min 10 --slow-max 80 --slow-step 2
+```
+
 ## 2. CTP 对接说明
 - 参考 `docs/ctp_checklist.md`
 
@@ -191,6 +197,10 @@ python monthly_report.py
 - `state/param_versions.json` 参数版本历史
 - `output/monthly_report.csv` 月度收益/回撤/交易统计
 - `output/monthly_report.json` 月度汇总
+- `output/weekly_report.csv` 周度收益/回撤/交易统计
+- `output/weekly_report.json` 周度汇总
+- `output/param_heatmap_<symbol>.csv` 参数稳定性热力图数据
+- `output/param_heatmap_<symbol>.html` 参数稳定性热力图页面
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_other.csv` 不在配置时段内的数据
 
@@ -261,6 +271,41 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   "source": "akshare",
   "fetch_times": ["11:35", "15:05", "23:05"],
   "research_time": "23:20"
+}
+```
+
+成本模型（按时段区分滑点/手续费倍率/成交率）：
+```json
+"cost_model": {
+  "profiles": [
+    {
+      "name": "day",
+      "start": "09:00",
+      "end": "15:00",
+      "slippage": 1.0,
+      "commission_multiplier": 1.0,
+      "fill_ratio_min": 0.95,
+      "fill_ratio_max": 1.0
+    },
+    {
+      "name": "night",
+      "start": "21:00",
+      "end": "23:00",
+      "slippage": 1.5,
+      "commission_multiplier": 1.1,
+      "fill_ratio_min": 0.9,
+      "fill_ratio_max": 1.0
+    }
+  ]
+}
+```
+
+监控告警（统一通道：日志 + 可选 webhook）：
+```json
+"monitor": {
+  "alert_file": "logs/alerts.log",
+  "webhook_url": "",
+  "drawdown_alert_threshold": 8000
 }
 ```
 

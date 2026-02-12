@@ -1,6 +1,6 @@
 import unittest
 
-from engine.perf_report import build_monthly_metrics
+from engine.perf_report import build_monthly_metrics, build_weekly_metrics
 
 
 class PerfReportTest(unittest.TestCase):
@@ -30,6 +30,21 @@ class PerfReportTest(unittest.TestCase):
         self.assertEqual(feb["month"], "2026-02")
         self.assertAlmostEqual(feb["pnl"], 900.0)
         self.assertEqual(feb["trade_count"], 1)
+
+    def test_build_weekly_metrics(self):
+        equity_rows = [
+            {"datetime": "2026-01-05 09:00", "equity": 100000},
+            {"datetime": "2026-01-06 09:00", "equity": 101000},
+            {"datetime": "2026-01-13 09:00", "equity": 100500},
+        ]
+        trade_rows = [
+            {"exit_time": "2026-01-06 10:00", "pnl": 500},
+            {"exit_time": "2026-01-13 10:00", "pnl": -200},
+        ]
+        rows = build_weekly_metrics(equity_rows, trade_rows)
+        self.assertTrue(len(rows) >= 2)
+        self.assertIn("week", rows[0])
+        self.assertIn("pnl", rows[0])
 
 
 if __name__ == "__main__":

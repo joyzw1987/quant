@@ -1,6 +1,7 @@
 from datetime import datetime, time
 
 from engine.backtest_engine import run_backtest
+from engine.cost_model import build_cost_model
 from engine.execution_sim import SimExecution
 from engine.risk import RiskManager
 from engine.strategy_factory import create_strategy
@@ -68,6 +69,7 @@ def build_risk(config):
         atr_period=risk_cfg["atr_period"],
         atr_multiplier=risk_cfg["atr_multiplier"],
         take_profit_multiplier=risk_cfg["take_profit_multiplier"],
+        max_orders_per_day=risk_cfg.get("max_orders_per_day"),
     )
 
 
@@ -77,6 +79,9 @@ def run_once(config, bars, strategy_cfg):
         contract_multiplier=config["contract"].get("multiplier", 1),
         commission_per_contract=config["contract"].get("commission_per_contract", 0.0),
         commission_min=config["contract"].get("commission_min", 0.0),
+        fill_ratio_min=config["contract"].get("fill_ratio_min", 1.0),
+        fill_ratio_max=config["contract"].get("fill_ratio_max", 1.0),
+        cost_model=build_cost_model(config),
     )
     risk = build_risk(config)
     strategy = create_strategy(strategy_cfg)
