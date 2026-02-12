@@ -76,6 +76,7 @@ python run.py --mode sim_gui --auto-start-live
 python run.py --mode sim_live --source akshare --interval-sec 60
 ```
 默认会按 `config.json` 的 `market_hours` 自动启停（非交易时段自动等待，下个开盘自动恢复）。
+说明：`sim_live_no_new_data` 支持连续计数并分级告警，达到 `monitor.no_new_data_error_threshold` 后从 `WARN` 升级为 `ERROR`。
 
 准实时轮询模拟 + 自动修正策略：
 ```
@@ -123,7 +124,7 @@ python dashboard.py --output-dir output
 ```
 python dashboard_gui.py
 ```
-说明：界面中可选择 `数据源/source` 并点击 `抓取数据`（受 `data_policy` 白名单约束），再点击 `运行回测` 实时查看行情、资金和交易。
+说明：界面中可选择 `数据源/source` 并点击 `抓取数据`（受 `data_policy` 白名单约束），再点击 `运行回测` 实时查看行情、资金和交易。界面会显示 `paper` 一致性状态、无新数据连续次数和告警级别。
 
 方式 I：报告索引页
 ```
