@@ -2,6 +2,7 @@ import unittest
 
 from sim_live_runner import (
     _build_dq_report,
+    compute_runtime_metrics,
     get_drawdown_alert_threshold,
     get_no_new_data_alert_level,
     get_no_new_data_error_threshold,
@@ -35,6 +36,14 @@ class SimLiveRunnerTest(unittest.TestCase):
         self.assertIsNone(get_drawdown_alert_threshold({}))
         cfg = {"monitor": {"drawdown_alert_threshold": 8000}}
         self.assertEqual(get_drawdown_alert_threshold(cfg), 8000.0)
+
+    def test_compute_runtime_metrics(self):
+        trades = [{"pnl": 10}, {"pnl": -5}, {"pnl": 3}]
+        equity_curve = [{"equity": 100000}, {"equity": 100100}, {"equity": 99950}]
+        metrics = compute_runtime_metrics(100000, 100008, trades, equity_curve)
+        self.assertEqual(metrics["total_pnl"], 8.0)
+        self.assertAlmostEqual(metrics["win_rate"], 66.6666666, places=3)
+        self.assertEqual(metrics["runtime_drawdown"], 150.0)
 
 
 if __name__ == "__main__":

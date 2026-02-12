@@ -116,6 +116,27 @@ def _in_trade_window(bar_dt, start_hm, end_hm):
     return True
 
 
+def compute_runtime_metrics(initial_capital, capital, trades, equity_curve):
+    total_pnl = float(capital) - float(initial_capital)
+    total_trades = len(trades or [])
+    win_trades = sum(1 for t in (trades or []) if float((t or {}).get("pnl", 0.0)) > 0)
+    win_rate = (win_trades / total_trades * 100.0) if total_trades > 0 else 0.0
+    peak = None
+    max_dd = 0.0
+    for row in equity_curve or []:
+        eq = float(row.get("equity", row.get("cash", capital)))
+        if peak is None or eq > peak:
+            peak = eq
+        dd = peak - eq
+        if dd > max_dd:
+            max_dd = dd
+    return {
+        "total_pnl": total_pnl,
+        "win_rate": win_rate,
+        "runtime_drawdown": max_dd,
+    }
+
+
 class ContinuousPaperSession:
     def __init__(self, cfg, symbol, output_dir):
         self.cfg = cfg
@@ -184,6 +205,14 @@ class ContinuousPaperSession:
             }
         )
 
+    def _runtime_metrics(self):
+        return compute_runtime_metrics(
+            initial_capital=self.initial_capital,
+            capital=self.capital,
+            trades=self.execution.trades,
+            equity_curve=self.equity_curve,
+        )
+
     def process_bars(self, bars, start_idx, runtime):
         processed = 0
         for idx in range(start_idx, len(bars)):
@@ -214,6 +243,7 @@ class ContinuousPaperSession:
             atr = self.risk.update_atr(bars[: idx + 1])
             if hasattr(self.risk, "update_volatility_pause"):
                 self.risk.update_volatility_pause(atr)
+            metrics = self._runtime_metrics()
 
             runtime.update(
                 {
@@ -228,6 +258,9 @@ class ContinuousPaperSession:
                     "trades": len(self.execution.trades),
                     "halt_reason": self.risk.halt_reason,
                     "gate_reason": self.last_gate_reason,
+                    "total_pnl": metrics["total_pnl"],
+                    "win_rate": metrics["win_rate"],
+                    "runtime_drawdown": metrics["runtime_drawdown"],
                 }
             )
 
@@ -238,6 +271,7 @@ class ContinuousPaperSession:
                     self.risk.update_after_trade(pnl, self.capital)
                     if hasattr(self.strategy, "on_trade_close"):
                         self.strategy.on_trade_close(pnl, idx)
+                    metrics = self._runtime_metrics()
                     runtime.update(
                         {
                             "event": "trade_close",
@@ -251,6 +285,9 @@ class ContinuousPaperSession:
                             "trades": len(self.execution.trades),
                             "last_trade": self.execution.trades[-1] if self.execution.trades else None,
                             "halt_reason": self.risk.halt_reason,
+                            "total_pnl": metrics["total_pnl"],
+                            "win_rate": metrics["win_rate"],
+                            "runtime_drawdown": metrics["runtime_drawdown"],
                         }
                     )
                 self._append_equity(idx, bar)
@@ -308,6 +345,7 @@ class ContinuousPaperSession:
                 self.daily_trade_count += 1
                 if hasattr(self.risk, "record_order"):
                     self.risk.record_order()
+                metrics = self._runtime_metrics()
                 runtime.update(
                     {
                         "event": "trade_open",
@@ -321,6 +359,9 @@ class ContinuousPaperSession:
                         "position": self.execution.position,
                         "trades": len(self.execution.trades),
                         "halt_reason": self.risk.halt_reason,
+                        "total_pnl": metrics["total_pnl"],
+                        "win_rate": metrics["win_rate"],
+                        "runtime_drawdown": metrics["runtime_drawdown"],
                     }
                 )
 
