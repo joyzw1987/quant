@@ -38,6 +38,7 @@ class MonitorUI:
         self.paper_check_path = os.path.join("output", "paper_check_report.json")
         self.config_path = "config.json"
         self.cfg = _read_json(self.config_path)
+        self.alert_path = (self.cfg.get("monitor", {}) or {}).get("alert_file", "logs/alerts.log")
 
         self.worker = None
         self.fetch_worker = None
@@ -92,6 +93,7 @@ class MonitorUI:
         self.var_paper_check = tk.StringVar(value="-")
         self.var_no_data_streak = tk.StringVar(value="-")
         self.var_no_data_level = tk.StringVar(value="-")
+        self.var_last_alert = tk.StringVar(value="-")
 
         self._build_layout()
         self._update_policy_text()
@@ -179,6 +181,7 @@ class MonitorUI:
         self._stat_cell(stats, "一致性校验", self.var_paper_check, 4, 3)
         self._stat_cell(stats, "无新数据连续", self.var_no_data_streak, 4, 4)
         self._stat_cell(stats, "无新数据级别", self.var_no_data_level, 4, 5)
+        self._stat_cell(stats, "最新告警", self.var_last_alert, 5, 0)
 
         mid = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         mid.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -526,6 +529,18 @@ class MonitorUI:
         errors = int(report.get("error_count", 0) or 0)
         self.var_paper_check.set("通过" if ok else f"失败({errors})")
 
+    def _update_last_alert(self):
+        if not os.path.exists(self.alert_path):
+            return
+        try:
+            with open(self.alert_path, "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+            if not lines:
+                return
+            self.var_last_alert.set(lines[-1])
+        except Exception:
+            pass
+
     def _poll(self):
         runtime = _read_json(self.runtime_path)
         if runtime:
@@ -533,6 +548,7 @@ class MonitorUI:
         self._update_from_performance()
         self._update_from_portfolio()
         self._update_from_paper_check()
+        self._update_last_alert()
 
         if self.fetch_worker and not self.fetch_worker.is_alive() and self.btn_fetch["state"] == tk.DISABLED:
             self.btn_fetch.configure(state=tk.NORMAL)
