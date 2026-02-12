@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 
 from engine.config_validator import report_validation, validate_config
 
@@ -33,11 +34,14 @@ def run_ctp(config):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Unified runner: sim/ctp")
-    parser.add_argument("--mode", default=None, choices=["sim", "sim_gui", "ctp"])
+    parser = argparse.ArgumentParser(description="Unified runner: sim/sim_live/ctp")
+    parser.add_argument("--mode", default=None, choices=["sim", "sim_gui", "sim_live", "ctp"])
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--auto-start", action="store_true", help="for sim_gui mode")
+    parser.add_argument("--source", default="akshare", help="for sim_live mode")
+    parser.add_argument("--interval-sec", type=int, default=60, help="for sim_live mode")
+    parser.add_argument("--max-cycles", type=int, default=0, help="for sim_live mode, 0=infinite")
     args = parser.parse_args()
 
     config = load_config()
@@ -55,6 +59,27 @@ def main():
 
     if mode == "sim_gui":
         run_sim_with_gui(config, symbol=symbol, auto_start=args.auto_start)
+    elif mode == "sim_live":
+        from sim_live_runner import main as sim_live_main
+
+        argv_backup = sys.argv[:]
+        try:
+            sys.argv = [
+                "sim_live_runner.py",
+                "--symbol",
+                symbol,
+                "--source",
+                args.source,
+                "--interval-sec",
+                str(args.interval_sec),
+                "--max-cycles",
+                str(args.max_cycles),
+                "--output-dir",
+                args.output_dir,
+            ]
+            sim_live_main()
+        finally:
+            sys.argv = argv_backup
     else:
         run_sim(config, symbol=symbol, output_dir=args.output_dir)
 

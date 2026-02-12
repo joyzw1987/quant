@@ -41,6 +41,10 @@ python run.py --mode sim
 ```
 python run.py --mode sim_gui --auto-start
 ```
+准实时轮询模拟（自动抓取增量数据 + 自动回测循环）：
+```
+python run.py --mode sim_live --source akshare --interval-sec 60
+```
 
 方式 C：批量回测（多合约）
 ```
