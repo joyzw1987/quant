@@ -181,6 +181,12 @@ python monthly_report.py
 python param_heatmap.py --symbol M2609 --fast-min 3 --fast-max 12 --slow-min 10 --slow-max 80 --slow-step 2
 ```
 
+方式 O：多合约组合回测（相关性约束 + 权重分配 + 可选再平衡）
+```
+python portfolio_runner.py
+```
+说明：支持 `portfolio.weight_method=equal/risk_budget`，以及 `portfolio.rebalance=none/weekly/monthly`。
+
 ## 2. CTP 对接说明
 - 参考 `docs/ctp_checklist.md`
 
@@ -201,6 +207,9 @@ python param_heatmap.py --symbol M2609 --fast-min 3 --fast-max 12 --slow-min 10 
 - `output/weekly_report.json` 周度汇总
 - `output/param_heatmap_<symbol>.csv` 参数稳定性热力图数据
 - `output/param_heatmap_<symbol>.html` 参数稳定性热力图页面
+- `output/portfolio/portfolio_summary.json` 组合回测汇总
+- `output/portfolio/portfolio_equity.csv` 组合权益曲线
+- `output/portfolio/portfolio_weight_events.json` 组合权重变更记录
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_other.csv` 不在配置时段内的数据
 
@@ -306,6 +315,19 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
   "alert_file": "logs/alerts.log",
   "webhook_url": "",
   "drawdown_alert_threshold": 8000
+}
+```
+
+组合回测配置：
+```json
+"portfolio": {
+  "enabled": false,
+  "symbols": ["M2609"],
+  "max_corr": 0.8,
+  "weight_method": "equal",
+  "rebalance": "none",
+  "min_rebalance_bars": 100,
+  "output_dir": "output/portfolio"
 }
 ```
 
