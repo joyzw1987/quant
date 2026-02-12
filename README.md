@@ -111,7 +111,7 @@ python batch_html.py
 
 方式 F：单合约 HTML 报告
 ```
-python single_report.py
+python single_report.py --output-dir output
 ```
 
 方式 G：合约仪表盘
@@ -132,7 +132,7 @@ python index_page.py
 
 方式 J：日报/周报
 ```
-python daily_weekly_report.py
+python daily_weekly_report.py --output-dir output
 ```
 输出：`output/daily_report.txt`、`output/weekly_report.csv`、`output/weekly_report.json`
 
@@ -203,7 +203,7 @@ python schedule_tasks.py --action uninstall
 
 方式 M：月度收益/回撤/交易统计
 ```
-python monthly_report.py
+python monthly_report.py --output-dir output
 ```
 
 方式 M-1：参数稳定性热力图（fast/slow）
@@ -224,8 +224,9 @@ python paper_consistency_check.py --trades output/trades.csv
 
 方式 Q：端到端回归（OOS -> 回测 -> 报告）
 ```
-python e2e_regression.py --symbol M2609 --quick
+python e2e_regression.py --symbol M2609 --quick --output-dir output
 ```
+说明：若 `data/<symbol>.csv` 缺失，会自动生成一份可复现实验数据；若希望强制要求已有数据，增加 `--require-existing-data`。
 
 ## 2. CTP 对接说明
 - 参考 `docs/ctp_checklist.md`
@@ -248,6 +249,7 @@ python e2e_regression.py --symbol M2609 --quick
 - `output/param_heatmap_<symbol>.csv` 参数稳定性热力图数据
 - `output/param_heatmap_<symbol>.html` 参数稳定性热力图页面
 - `output/portfolio/portfolio_summary.json` 组合回测汇总
+  - 包含 `blocked_by_corr` 字段，记录因相关性上限被剔除的品种明细
 - `output/portfolio/portfolio_equity.csv` 组合权益曲线
 - `output/portfolio/portfolio_weight_events.json` 组合权重变更记录
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）
@@ -369,6 +371,26 @@ python data_update.py --symbol M2609 --days 20 --out data/M2609.csv
       "fill_ratio_max": 1.0
     }
   ]
+}
+```
+说明：配置校验会对时段重叠给出警告，避免多个 profile 相互覆盖造成回测偏差。
+
+数据质量闸门（可阻断低质量样本）：
+```json
+"data_quality": {
+  "enabled": true,
+  "min_rows": 200,
+  "max_missing_bars": null,
+  "max_missing_ratio": null,
+  "warn_missing_ratio": 0.2
+}
+```
+
+Paper 一致性校验（回测结束自动执行）：
+```json
+"paper_check": {
+  "enabled": true,
+  "strict": false
 }
 ```
 
