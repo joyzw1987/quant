@@ -39,9 +39,14 @@ class MonitorUI:
         self.worker = None
         self.fetch_worker = None
         self.portfolio_worker = None
+        self.live_worker = None
+        self.live_proc = None
         self.worker_error = None
         self.fetch_error = None
         self.portfolio_error = None
+        self.live_error = None
+        self.live_output = ""
+        self.live_stopping = False
         self.last_runtime_ts = ""
         self.last_trade_key = ""
 
@@ -52,6 +57,8 @@ class MonitorUI:
         self.var_symbol = tk.StringVar(value=default_symbol)
         self.var_source = tk.StringVar(value="akshare")
         self.var_days = tk.StringVar(value="20")
+        self.var_live_interval = tk.StringVar(value="5")
+        self.var_live_cycles = tk.StringVar(value="0")
         self.var_status = tk.StringVar(value="空闲")
         self.var_policy = tk.StringVar(value="-")
         self.var_time = tk.StringVar(value="-")
@@ -75,6 +82,7 @@ class MonitorUI:
         self._build_layout()
         self._update_policy_text()
         self._poll()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         if auto_start:
             self._start_run()
 
@@ -106,6 +114,18 @@ class MonitorUI:
 
         self.btn_portfolio = ttk.Button(top, text="运行组合", command=self._start_portfolio_run)
         self.btn_portfolio.pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(top, text="间隔(秒)").pack(side=tk.LEFT)
+        ttk.Entry(top, width=5, textvariable=self.var_live_interval).pack(side=tk.LEFT, padx=(6, 10))
+
+        ttk.Label(top, text="轮次(0=持续)").pack(side=tk.LEFT)
+        ttk.Entry(top, width=8, textvariable=self.var_live_cycles).pack(side=tk.LEFT, padx=(6, 10))
+
+        self.btn_live_start = ttk.Button(top, text="启动模拟盘", command=self._start_live_run)
+        self.btn_live_start.pack(side=tk.LEFT, padx=(0, 6))
+
+        self.btn_live_stop = ttk.Button(top, text="停止模拟盘", command=self._stop_live_run, state=tk.DISABLED)
+        self.btn_live_stop.pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Label(top, text="模式").pack(side=tk.LEFT)
         ttk.Label(top, textvariable=self.var_policy).pack(side=tk.LEFT, padx=(6, 16))
@@ -294,6 +314,92 @@ class MonitorUI:
         self.portfolio_worker = threading.Thread(target=_worker, daemon=True)
         self.portfolio_worker.start()
 
+    def _start_live_run(self):
+        if self.live_worker and self.live_worker.is_alive():
+            return
+
+        symbol = self.var_symbol.get().strip() or "M2609"
+        source = self.var_source.get().strip() or "akshare"
+        interval_text = self.var_live_interval.get().strip() or "5"
+        cycles_text = self.var_live_cycles.get().strip() or "0"
+
+        if not interval_text.isdigit() or int(interval_text) <= 0:
+            self.var_status.set("参数错误")
+            self._append_log("启动模拟盘失败：间隔(秒)必须是正整数")
+            return
+        if not cycles_text.isdigit():
+            self.var_status.set("参数错误")
+            self._append_log("启动模拟盘失败：轮次必须是非负整数")
+            return
+
+        ok, reason = self._is_source_allowed(source)
+        if not ok:
+            self.var_status.set("已拦截")
+            self._append_log(f"模拟盘被拦截：{reason}")
+            return
+
+        interval = int(interval_text)
+        cycles = int(cycles_text)
+        self.live_error = None
+        self.live_output = ""
+        self.live_stopping = False
+        self.var_status.set("模拟盘运行中")
+        self.btn_live_start.configure(state=tk.DISABLED)
+        self.btn_live_stop.configure(state=tk.NORMAL)
+        self._append_log(
+            f"启动模拟盘：symbol={symbol} source={source} interval={interval}s cycles={cycles}"
+        )
+
+        def _worker():
+            try:
+                cmd = [
+                    sys.executable,
+                    "run.py",
+                    "--mode",
+                    "sim_live",
+                    "--symbol",
+                    symbol,
+                    "--source",
+                    source,
+                    "--interval-sec",
+                    str(interval),
+                    "--max-cycles",
+                    str(cycles),
+                    "--ignore-market-hours",
+                ]
+                self.live_proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                )
+                out_text, _ = self.live_proc.communicate()
+                self.live_output = (out_text or "").strip()
+                if self.live_proc.returncode != 0 and not self.live_stopping:
+                    self.live_error = self.live_output or f"exit_code={self.live_proc.returncode}"
+            except Exception as exc:
+                self.live_error = str(exc)
+            finally:
+                self.live_proc = None
+
+        self.live_worker = threading.Thread(target=_worker, daemon=True)
+        self.live_worker.start()
+
+    def _stop_live_run(self):
+        if self.live_proc and self.live_proc.poll() is None:
+            self.live_stopping = True
+            try:
+                self.live_proc.terminate()
+            except Exception:
+                pass
+            self.var_status.set("模拟盘停止中")
+            self._append_log("正在停止模拟盘...")
+
+    def _on_close(self):
+        self._stop_live_run()
+        self.root.destroy()
+
     def _update_from_runtime(self, runtime):
         self.var_time.set(runtime.get("last_bar_time", "-"))
         self.var_step.set(str(runtime.get("last_step", "-")))
@@ -396,6 +502,23 @@ class MonitorUI:
             else:
                 self.var_status.set("组合完成")
                 self._append_log("组合回测完成")
+
+        if self.live_worker and not self.live_worker.is_alive() and self.btn_live_start["state"] == tk.DISABLED:
+            self.btn_live_start.configure(state=tk.NORMAL)
+            self.btn_live_stop.configure(state=tk.DISABLED)
+            if self.live_output:
+                tail = self.live_output.splitlines()[-20:]
+                for line in tail:
+                    self._append_log(line)
+            if self.live_error:
+                self.var_status.set("模拟盘失败")
+                self._append_log(f"模拟盘失败：{self.live_error}")
+            elif self.live_stopping:
+                self.var_status.set("模拟盘已停止")
+                self._append_log("模拟盘已停止")
+            else:
+                self.var_status.set("模拟盘完成")
+                self._append_log("模拟盘完成")
 
         self.root.after(400, self._poll)
 
