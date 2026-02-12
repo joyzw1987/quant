@@ -1,6 +1,12 @@
-from datetime import datetime
-
 from engine.gateway_base import GatewayBase
+from engine.order_state import (
+    ORDER_STATUS_ACKED,
+    ORDER_STATUS_CANCELING,
+    ORDER_STATUS_CANCELED,
+    ORDER_STATUS_FILLED,
+    ORDER_STATUS_REJECTED,
+    OrderStateMachine,
+)
 
 
 class CtpMarketDataGateway(GatewayBase):
@@ -60,7 +66,7 @@ class CtpTradeGateway(GatewayBase):
         self.api = api
         self.connected = False
         self.last_error = ""
-        self.local_orders = {}
+        self.order_state = OrderStateMachine()
 
     def connect(self, **kwargs):
         try:
@@ -103,19 +109,10 @@ class CtpTradeGateway(GatewayBase):
                     order_type=order_type,
                 )
             else:
-                order_id = f"LOCAL_{len(self.local_orders) + 1:08d}"
-            order = {
-                "order_id": order_id,
-                "symbol": symbol,
-                "direction": direction,
-                "price": float(price),
-                "size": float(size),
-                "filled": float(size),
-                "status": "FILLED",
-                "order_type": order_type,
-                "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            self.local_orders[order_id] = order
+                order_id = f"LOCAL_{len(self.order_state.orders) + 1:08d}"
+            order = self.order_state.create_order(order_id, symbol, direction, price, size, order_type=order_type)
+            self.order_state.transition(order_id, ORDER_STATUS_ACKED)
+            self.order_state.transition(order_id, ORDER_STATUS_FILLED, filled=size)
             return {"ok": True, "order_id": order_id, "status": order["status"], "order": order}
         except Exception as exc:
             self.last_error = str(exc)
@@ -128,10 +125,11 @@ class CtpTradeGateway(GatewayBase):
             ok = True
             if self.api and hasattr(self.api, "cancel_order"):
                 ok = bool(self.api.cancel_order(order_id))
-            order = self.local_orders.get(order_id)
-            if ok and order and order.get("status") not in ("FILLED", "CANCELED"):
-                order["status"] = "CANCELED"
-                order["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            order = self.order_state.get(order_id)
+            if order and order.get("status") not in (ORDER_STATUS_FILLED, ORDER_STATUS_CANCELED, ORDER_STATUS_REJECTED):
+                self.order_state.transition(order_id, ORDER_STATUS_CANCELING)
+                if ok:
+                    self.order_state.transition(order_id, ORDER_STATUS_CANCELED)
             return {"ok": bool(ok), "order_id": order_id}
         except Exception as exc:
             self.last_error = str(exc)
@@ -151,7 +149,7 @@ class CtpTradeGateway(GatewayBase):
             remote = []
             if self.api and hasattr(self.api, "query_orders"):
                 remote = list(self.api.query_orders() or [])
-            merged = dict(self.local_orders)
+            merged = {o["order_id"]: o for o in self.order_state.all_orders() if o.get("order_id")}
             for row in remote:
                 oid = row.get("order_id")
                 if oid:
@@ -159,4 +157,4 @@ class CtpTradeGateway(GatewayBase):
             return list(merged.values())
         except Exception as exc:
             self.last_error = str(exc)
-            return list(self.local_orders.values())
+            return self.order_state.all_orders()
