@@ -115,6 +115,11 @@ python data_update_merge.py --symbol M2609 --out data/M2609.csv
 python run_update_backtest.py --symbol M2609 --days 20 --out data/M2609.csv
 ```
 
+方式 K-3：从归档目录重建长样本（建议每周执行）
+```
+python build_dataset_from_archive.py --symbol M2609 --out data/M2609.csv --max-days 120
+```
+
 方式 L：Walk-Forward 滚动验证（防过拟合）
 ```
 python walk_forward_runner.py --symbol M2609 --train-size 480 --test-size 120 --step-size 120
@@ -125,6 +130,15 @@ python walk_forward_runner.py --symbol M2609 --train-size 480 --test-size 120 --
 python walk_forward_tune.py --symbol M2609 --train-size 480 --test-size 120 --step-size 120
 ```
 说明：当 `strategy.name` 为 `rsi_ma` 时，脚本会按 `rsi_ma` 真实信号逻辑评估 `fast/slow`，不再使用纯均线近似评分。
+
+方式 L-2：严格样本外验证（训练段选参 + 留出段验收）
+```
+python strict_oos_validate.py --symbol M2609 --holdout-bars 240 --max-candidates 400
+```
+若留出段优于基线并自动写回参数：
+```
+python strict_oos_validate.py --symbol M2609 --holdout-bars 240 --max-candidates 400 --apply-best
+```
 
 方式 M：月度收益/回撤/交易统计
 ```
@@ -140,6 +154,8 @@ python monthly_report.py
 - `output/<symbol>/report.html` 单合约报告
 - `output/walk_forward_<symbol>.csv` 滚动窗口明细
 - `output/walk_forward_<symbol>.json` 滚动验证汇总
+- `output/strict_oos_report.json` 严格样本外验证报告
+- `output/strategy_optimization.json` 参数优化报告
 - `output/monthly_report.csv` 月度收益/回撤/交易统计
 - `output/monthly_report.json` 月度汇总
 - `E:/quantData/<YYYY>/<MM>/<YYYY-MM-DD>/<symbol>_sN_HHMM_HHMM.csv` 原始分钟数据（交易时段分桶）

@@ -18,13 +18,15 @@ class DataEngine:
         with open(path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
+                # Handle BOM headers such as "\ufeffdatetime".
+                normalized = {(k or "").replace("\ufeff", ""): v for k, v in row.items()}
                 bars.append(
                     {
-                        "datetime": row["datetime"],
-                        "open": float(row["open"]),
-                        "high": float(row["high"]),
-                        "low": float(row["low"]),
-                        "close": float(row["close"]),
+                        "datetime": normalized["datetime"],
+                        "open": float(normalized["open"]),
+                        "high": float(normalized["high"]),
+                        "low": float(normalized["low"]),
+                        "close": float(normalized["close"]),
                     }
                 )
         return bars
