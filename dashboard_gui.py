@@ -38,8 +38,10 @@ class MonitorUI:
         self.config_path = "config.json"
         self.worker = None
         self.fetch_worker = None
+        self.portfolio_worker = None
         self.worker_error = None
         self.fetch_error = None
+        self.portfolio_error = None
         self.last_runtime_ts = ""
         self.last_trade_key = ""
 
@@ -98,6 +100,9 @@ class MonitorUI:
 
         self.btn_run = ttk.Button(top, text="运行回测", command=self._start_run)
         self.btn_run.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.btn_portfolio = ttk.Button(top, text="运行组合", command=self._start_portfolio_run)
+        self.btn_portfolio.pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Label(top, text="模式").pack(side=tk.LEFT)
         ttk.Label(top, textvariable=self.var_policy).pack(side=tk.LEFT, padx=(6, 16))
@@ -259,6 +264,30 @@ class MonitorUI:
         self.worker = threading.Thread(target=_worker, daemon=True)
         self.worker.start()
 
+    def _start_portfolio_run(self):
+        if self.portfolio_worker and self.portfolio_worker.is_alive():
+            return
+        self.var_status.set("组合运行中")
+        self.portfolio_error = None
+        self.btn_portfolio.configure(state=tk.DISABLED)
+        self._append_log("开始组合回测")
+
+        def _worker():
+            try:
+                cmd = [sys.executable, "portfolio_runner.py"]
+                result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+                if result.returncode != 0:
+                    self.portfolio_error = (result.stderr or result.stdout or "").strip()
+                else:
+                    out_text = (result.stdout or "").strip()
+                    if out_text:
+                        self._append_log(out_text)
+            except Exception as exc:
+                self.portfolio_error = str(exc)
+
+        self.portfolio_worker = threading.Thread(target=_worker, daemon=True)
+        self.portfolio_worker.start()
+
     def _update_from_runtime(self, runtime):
         self.var_time.set(runtime.get("last_bar_time", "-"))
         self.var_step.set(str(runtime.get("last_step", "-")))
@@ -342,6 +371,15 @@ class MonitorUI:
             else:
                 self.var_status.set("运行完成")
                 self._append_log("回测完成")
+
+        if self.portfolio_worker and not self.portfolio_worker.is_alive() and self.btn_portfolio["state"] == tk.DISABLED:
+            self.btn_portfolio.configure(state=tk.NORMAL)
+            if self.portfolio_error:
+                self.var_status.set("组合失败")
+                self._append_log(f"组合回测失败：{self.portfolio_error}")
+            else:
+                self.var_status.set("组合完成")
+                self._append_log("组合回测完成")
 
         self.root.after(400, self._poll)
 
