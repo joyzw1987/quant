@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+from datetime import datetime
 
 from engine.portfolio import allocate_weights_with_method, build_corr_matrix
 from main import main
@@ -35,6 +36,20 @@ def _normalized_equity(rows):
     return [v / base for v in values]
 
 
+def _returns_from_norm(norm_values):
+    if not norm_values:
+        return []
+    out = [0.0]
+    for i in range(1, len(norm_values)):
+        prev = norm_values[i - 1]
+        now = norm_values[i]
+        if prev == 0:
+            out.append(0.0)
+        else:
+            out.append((now / prev) - 1.0)
+    return out
+
+
 def _max_drawdown(values):
     peak = None
     max_dd = 0.0
@@ -47,6 +62,88 @@ def _max_drawdown(values):
     return max_dd
 
 
+def _period_key(datetime_text, mode):
+    mode = str(mode or "none").lower()
+    if mode == "none":
+        return "all"
+    text = str(datetime_text or "")
+    date_text = text[:10]
+    try:
+        d = datetime.strptime(date_text, "%Y-%m-%d")
+    except Exception:
+        return "unknown"
+    if mode == "weekly":
+        y, w, _ = d.isocalendar()
+        return f"{y}-W{w:02d}"
+    if mode == "monthly":
+        return f"{d.year}-{d.month:02d}"
+    return "all"
+
+
+def _simulate_portfolio(
+    symbols,
+    dates,
+    aligned_returns,
+    initial_capital,
+    corr_limit,
+    weight_method,
+    rebalance_mode,
+    min_rebalance_bars,
+):
+    base_return_map = {s: aligned_returns[s][1:] for s in symbols}
+    base_corr = build_corr_matrix(base_return_map)
+    weights, selected, weight_meta = allocate_weights_with_method(
+        symbols=symbols,
+        corr_matrix=base_corr,
+        return_map=base_return_map,
+        max_corr=corr_limit,
+        weight_method=weight_method,
+    )
+    weight_events = [
+        {
+            "step": 0,
+            "datetime": dates[0] if dates else "",
+            "reason": "initial",
+            "weights": weights,
+            "selected_symbols": selected,
+            "meta": weight_meta,
+        }
+    ]
+
+    equity = [initial_capital]
+    current_weights = dict(weights)
+    current_period = _period_key(dates[0] if dates else "", rebalance_mode)
+
+    for i in range(1, len(dates)):
+        new_period = _period_key(dates[i], rebalance_mode)
+        if rebalance_mode != "none" and new_period != current_period and i >= min_rebalance_bars:
+            hist_returns = {s: aligned_returns[s][1:i] for s in symbols}
+            corr = build_corr_matrix(hist_returns)
+            current_weights, selected, weight_meta = allocate_weights_with_method(
+                symbols=symbols,
+                corr_matrix=corr,
+                return_map=hist_returns,
+                max_corr=corr_limit,
+                weight_method=weight_method,
+            )
+            weight_events.append(
+                {
+                    "step": i,
+                    "datetime": dates[i],
+                    "reason": f"rebalance_{rebalance_mode}",
+                    "weights": current_weights,
+                    "selected_symbols": selected,
+                    "meta": weight_meta,
+                }
+            )
+            current_period = new_period
+
+        portfolio_ret = sum(float(current_weights.get(s, 0.0)) * float(aligned_returns[s][i]) for s in symbols)
+        equity.append(equity[-1] * (1.0 + portfolio_ret))
+
+    return equity, weight_events, base_corr
+
+
 def main_portfolio():
     cfg = load_config()
     symbols = cfg.get("symbols") or [cfg.get("symbol")]
@@ -57,6 +154,8 @@ def main_portfolio():
     portfolio_cfg = cfg.get("portfolio", {})
     corr_limit = float(portfolio_cfg.get("max_corr", 0.8))
     weight_method = str(portfolio_cfg.get("weight_method", "equal")).lower()
+    rebalance_mode = str(portfolio_cfg.get("rebalance", "none")).lower()
+    min_rebalance_bars = int(portfolio_cfg.get("min_rebalance_bars", 100))
     out_dir = portfolio_cfg.get("output_dir", os.path.join("output", "portfolio"))
     os.makedirs(out_dir, exist_ok=True)
 
@@ -83,25 +182,30 @@ def main_portfolio():
     if not symbols:
         raise SystemExit("no valid symbol results")
 
-    corr = build_corr_matrix(returns_map)
-    weights, selected, weight_meta = allocate_weights_with_method(
-        symbols=symbols,
-        corr_matrix=corr,
-        return_map=returns_map,
-        max_corr=corr_limit,
-        weight_method=weight_method,
-    )
-
     initial_capital = float(cfg.get("backtest", {}).get("initial_capital", 100000))
-    combined_pnl = sum(float(perf_map[s].get("total_pnl", 0.0)) * float(weights.get(s, 0.0)) for s in symbols)
 
     norm_map = {s: _normalized_equity(curve_map[s]) for s in symbols}
     min_len = min((len(v) for v in norm_map.values() if v), default=0)
-    portfolio_equity = []
-    for i in range(min_len):
-        ratio = sum(float(weights[s]) * norm_map[s][i] for s in symbols if len(norm_map[s]) >= min_len)
-        equity = initial_capital * ratio
-        portfolio_equity.append(equity)
+    if min_len == 0:
+        raise SystemExit("no aligned equity series")
+
+    symbols = [s for s in symbols if len(norm_map.get(s, [])) >= min_len]
+    dates = [curve_map[symbols[0]][i].get("datetime", "") for i in range(min_len)]
+    aligned_returns = {s: _returns_from_norm(norm_map[s][:min_len]) for s in symbols}
+
+    portfolio_equity, weight_events, corr = _simulate_portfolio(
+        symbols=symbols,
+        dates=dates,
+        aligned_returns=aligned_returns,
+        initial_capital=initial_capital,
+        corr_limit=corr_limit,
+        weight_method=weight_method,
+        rebalance_mode=rebalance_mode,
+        min_rebalance_bars=min_rebalance_bars,
+    )
+    final_weights = weight_events[-1]["weights"] if weight_events else {}
+    selected = weight_events[-1]["selected_symbols"] if weight_events else symbols
+    combined_pnl = (portfolio_equity[-1] - initial_capital) if portfolio_equity else 0.0
     max_dd = _max_drawdown(portfolio_equity)
 
     summary = {
@@ -109,8 +213,10 @@ def main_portfolio():
         "selected_symbols": selected,
         "max_corr": corr_limit,
         "weight_method": weight_method,
-        "weight_meta": weight_meta,
-        "weights": weights,
+        "rebalance_mode": rebalance_mode,
+        "min_rebalance_bars": min_rebalance_bars,
+        "rebalance_events": max(0, len(weight_events) - 1),
+        "weights": final_weights,
         "correlation": corr,
         "initial_capital": initial_capital,
         "final_capital": initial_capital + combined_pnl,
@@ -118,18 +224,23 @@ def main_portfolio():
         "max_drawdown": max_dd,
     }
 
-    with open(os.path.join(out_dir, "portfolio_summary.json"), "w", encoding="utf-8") as f:
+    summary_path = os.path.join(out_dir, "portfolio_summary.json")
+    with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
+    events_path = os.path.join(out_dir, "portfolio_weight_events.json")
+    with open(events_path, "w", encoding="utf-8") as f:
+        json.dump(weight_events, f, ensure_ascii=False, indent=2)
 
     curve_out = os.path.join(out_dir, "portfolio_equity.csv")
     with open(curve_out, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["step", "equity"])
+        writer.writerow(["step", "datetime", "equity"])
         for i, v in enumerate(portfolio_equity):
-            writer.writerow([i, v])
+            writer.writerow([i, dates[i] if i < len(dates) else "", v])
 
     print(f"[PORTFOLIO] symbols={len(symbols)} selected={len(selected)}")
-    print(f"[PORTFOLIO] summary={os.path.join(out_dir, 'portfolio_summary.json')}")
+    print(f"[PORTFOLIO] summary={summary_path}")
+    print(f"[PORTFOLIO] events={events_path}")
     print(f"[PORTFOLIO] curve={curve_out}")
 
 
