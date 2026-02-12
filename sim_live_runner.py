@@ -56,6 +56,14 @@ def read_paper_check_status(output_dir):
     return {"ok": bool(ok), "error_count": error_count, "errors": errors}
 
 
+def market_hours_signature(cfg):
+    market_hours = (cfg or {}).get("market_hours") or {}
+    try:
+        return json.dumps(market_hours, ensure_ascii=False, sort_keys=True)
+    except Exception:
+        return str(market_hours)
+
+
 def _run_fetch(symbol, out_path, source):
     cmd = [
         sys.executable,
@@ -620,6 +628,7 @@ def main():
     )
     tune_cfg = _normalize_tune_cfg(_resolve_tune_cfg(cfg, args))
     schedule = load_market_schedule(cfg)
+    schedule_sig = market_hours_signature(cfg)
     use_market_hours = not args.ignore_market_hours
     last_bar_time_seen = _read_latest_bar_time(data_out)
     no_new_data_streak = 0
@@ -634,6 +643,35 @@ def main():
     cycle = 0
     session = None
     while True:
+        # Hot-reload config for market-hours / data-quality / tuning options.
+        try:
+            latest_cfg = load_config()
+            latest_sig = market_hours_signature(latest_cfg)
+            if latest_sig != schedule_sig:
+                cfg = latest_cfg
+                schedule = load_market_schedule(cfg)
+                schedule_sig = latest_sig
+                runtime.update(
+                    {
+                        "event": "sim_live_schedule_reloaded",
+                        "mode": "sim_live",
+                        "symbol": symbol,
+                    }
+                )
+                print("[SIM_LIVE] market_hours reloaded")
+            else:
+                cfg = latest_cfg
+            tune_cfg = _normalize_tune_cfg(_resolve_tune_cfg(cfg, args))
+        except Exception as exc:
+            runtime.update(
+                {
+                    "event": "sim_live_config_reload_failed",
+                    "mode": "sim_live",
+                    "symbol": symbol,
+                    "error": str(exc),
+                }
+            )
+
         if use_market_hours:
             while True:
                 now = datetime.now()

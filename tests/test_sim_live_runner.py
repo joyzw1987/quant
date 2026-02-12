@@ -9,6 +9,7 @@ from sim_live_runner import (
     get_drawdown_alert_threshold,
     get_no_new_data_alert_level,
     get_no_new_data_error_threshold,
+    market_hours_signature,
     read_paper_check_status,
 )
 
@@ -75,6 +76,11 @@ class SimLiveRunnerTest(unittest.TestCase):
             self.assertEqual(status["ok"], False)
             self.assertEqual(status["error_count"], 2)
             self.assertEqual(status["errors"], ["e1", "e2"])
+
+    def test_market_hours_signature_changes(self):
+        cfg_a = {"market_hours": {"sessions": [{"start": "09:00", "end": "11:30"}]}}
+        cfg_b = {"market_hours": {"sessions": [{"start": "21:00", "end": "02:30"}]}}
+        self.assertNotEqual(market_hours_signature(cfg_a), market_hours_signature(cfg_b))
 
 
 if __name__ == "__main__":

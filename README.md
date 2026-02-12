@@ -76,6 +76,7 @@ python run.py --mode sim_gui --auto-start-live
 python run.py --mode sim_live --source akshare --interval-sec 60
 ```
 默认会按 `config.json` 的 `market_hours` 自动启停（非交易时段自动等待，下个开盘自动恢复）。
+`sim_live` 运行中会热重载 `market_hours`，修改交易时段后无需重启进程。
 说明：`sim_live_no_new_data` 支持连续计数并分级告警，达到 `monitor.no_new_data_error_threshold` 后从 `WARN` 升级为 `ERROR`。
 
 准实时轮询模拟 + 自动修正策略：
