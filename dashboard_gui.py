@@ -27,7 +27,7 @@ def _format_num(value):
 class MonitorUI:
     def __init__(self, root, default_symbol=None, auto_start=False):
         self.root = root
-        self.root.title("Quant Realtime Monitor")
+        self.root.title("量化实时监控")
         self.root.geometry("1100x700")
 
         self.runtime_path = os.path.join("state", "runtime_state.json")
@@ -42,7 +42,7 @@ class MonitorUI:
             default_symbol = cfg.get("symbol", "M2609")
 
         self.var_symbol = tk.StringVar(value=default_symbol)
-        self.var_status = tk.StringVar(value="idle")
+        self.var_status = tk.StringVar(value="空闲")
         self.var_time = tk.StringVar(value="-")
         self.var_step = tk.StringVar(value="-")
         self.var_price = tk.StringVar(value="-")
@@ -62,10 +62,10 @@ class MonitorUI:
         top = ttk.Frame(self.root, padding=10)
         top.pack(fill=tk.X)
 
-        ttk.Label(top, text="Symbol").pack(side=tk.LEFT)
+        ttk.Label(top, text="合约").pack(side=tk.LEFT)
         ttk.Entry(top, width=12, textvariable=self.var_symbol).pack(side=tk.LEFT, padx=(8, 12))
 
-        self.btn_run = ttk.Button(top, text="Run", command=self._start_run)
+        self.btn_run = ttk.Button(top, text="运行", command=self._start_run)
         self.btn_run.pack(side=tk.LEFT)
 
         ttk.Label(top, textvariable=self.var_status, foreground="#0a4").pack(side=tk.LEFT, padx=(14, 0))
@@ -73,15 +73,15 @@ class MonitorUI:
         stats = ttk.Frame(self.root, padding=10)
         stats.pack(fill=tk.X)
 
-        self._stat_cell(stats, "Bar Time", self.var_time, 0, 0)
-        self._stat_cell(stats, "Step", self.var_step, 0, 1)
-        self._stat_cell(stats, "Price", self.var_price, 0, 2)
-        self._stat_cell(stats, "Capital", self.var_capital, 0, 3)
-        self._stat_cell(stats, "Position", self.var_position, 1, 0)
-        self._stat_cell(stats, "Trades", self.var_trades, 1, 1)
-        self._stat_cell(stats, "PnL", self.var_pnl, 1, 2)
-        self._stat_cell(stats, "WinRate", self.var_win_rate, 1, 3)
-        self._stat_cell(stats, "MaxDD", self.var_drawdown, 1, 4)
+        self._stat_cell(stats, "K线时间", self.var_time, 0, 0)
+        self._stat_cell(stats, "步骤", self.var_step, 0, 1)
+        self._stat_cell(stats, "价格", self.var_price, 0, 2)
+        self._stat_cell(stats, "资金", self.var_capital, 0, 3)
+        self._stat_cell(stats, "持仓", self.var_position, 1, 0)
+        self._stat_cell(stats, "交易数", self.var_trades, 1, 1)
+        self._stat_cell(stats, "总盈亏", self.var_pnl, 1, 2)
+        self._stat_cell(stats, "胜率", self.var_win_rate, 1, 3)
+        self._stat_cell(stats, "最大回撤", self.var_drawdown, 1, 4)
 
         mid = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         mid.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -91,16 +91,16 @@ class MonitorUI:
         mid.add(left, weight=3)
         mid.add(right, weight=2)
 
-        ttk.Label(left, text="Latest Trades").pack(anchor=tk.W)
-        columns = ("exit_time", "direction", "entry_price", "exit_price", "size", "pnl")
+        ttk.Label(left, text="最近成交").pack(anchor=tk.W)
+        columns = ("平仓时间", "方向", "开仓价", "平仓价", "手数", "盈亏")
         self.trade_table = ttk.Treeview(left, columns=columns, show="headings", height=18)
         for col in columns:
             self.trade_table.heading(col, text=col)
-            width = 120 if col == "exit_time" else 90
+            width = 120 if col == "平仓时间" else 90
             self.trade_table.column(col, width=width, anchor=tk.CENTER)
         self.trade_table.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(right, text="Runtime Log").pack(anchor=tk.W)
+        ttk.Label(right, text="运行日志").pack(anchor=tk.W)
         self.log_box = tk.Text(right, height=20, state=tk.DISABLED)
         self.log_box.pack(fill=tk.BOTH, expand=True)
 
@@ -109,6 +109,27 @@ class MonitorUI:
         frm.grid(row=row, column=col, sticky="w")
         ttk.Label(frm, text=f"{title}: ").pack(side=tk.LEFT)
         ttk.Label(frm, textvariable=var).pack(side=tk.LEFT)
+
+    def _event_text(self, event):
+        mapping = {
+            "new_day": "新交易日",
+            "trade_open": "开仓",
+            "trade_close": "平仓",
+            "force_close": "强平",
+            "finished": "结束",
+            "tick": "行情",
+        }
+        return mapping.get(event, str(event))
+
+    def _position_text(self, position):
+        return "持仓中" if position else "空仓"
+
+    def _direction_text(self, direction):
+        if direction == "LONG":
+            return "多"
+        if direction == "SHORT":
+            return "空"
+        return str(direction) if direction is not None else "-"
 
     def _append_log(self, text):
         self.log_box.configure(state=tk.NORMAL)
@@ -120,10 +141,10 @@ class MonitorUI:
         if self.worker and self.worker.is_alive():
             return
         symbol = self.var_symbol.get().strip() or "M2609"
-        self.var_status.set("running")
+        self.var_status.set("运行中")
         self.worker_error = None
         self.btn_run.configure(state=tk.DISABLED)
-        self._append_log(f"run start symbol={symbol}")
+        self._append_log(f"开始运行，合约={symbol}")
 
         def _worker():
             try:
@@ -139,16 +160,16 @@ class MonitorUI:
         self.var_step.set(str(runtime.get("last_step", "-")))
         self.var_price.set(_format_num(runtime.get("last_price")))
         self.var_capital.set(_format_num(runtime.get("capital")))
-        self.var_position.set("OPEN" if runtime.get("position") else "FLAT")
+        self.var_position.set(self._position_text(runtime.get("position")))
         self.var_trades.set(str(runtime.get("trades", 0)))
 
         ts = runtime.get("updated_at", "")
         if ts and ts != self.last_runtime_ts:
             self.last_runtime_ts = ts
-            event = runtime.get("event", "tick")
+            event = self._event_text(runtime.get("event", "tick"))
             self._append_log(
-                f"{ts} event={event} step={runtime.get('last_step', '-')} "
-                f"price={_format_num(runtime.get('last_price'))} cap={_format_num(runtime.get('capital'))}"
+                f"{ts} 事件={event} 步骤={runtime.get('last_step', '-')} "
+                f"价格={_format_num(runtime.get('last_price'))} 资金={_format_num(runtime.get('capital'))}"
             )
 
         trade = runtime.get("last_trade")
@@ -161,7 +182,7 @@ class MonitorUI:
                     0,
                     values=(
                         trade.get("exit_time", "-"),
-                        trade.get("direction", "-"),
+                        self._direction_text(trade.get("direction", "-")),
                         _format_num(trade.get("entry_price")),
                         _format_num(trade.get("exit_price")),
                         trade.get("size", "-"),
@@ -189,11 +210,11 @@ class MonitorUI:
         if self.worker and not self.worker.is_alive() and self.btn_run["state"] == tk.DISABLED:
             self.btn_run.configure(state=tk.NORMAL)
             if self.worker_error:
-                self.var_status.set("failed")
-                self._append_log(f"run failed: {self.worker_error}")
+                self.var_status.set("失败")
+                self._append_log(f"运行失败：{self.worker_error}")
             else:
-                self.var_status.set("finished")
-                self._append_log("run finished")
+                self.var_status.set("完成")
+                self._append_log("运行完成")
 
         self.root.after(400, self._poll)
 
