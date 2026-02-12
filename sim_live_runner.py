@@ -707,6 +707,22 @@ def main():
             ok_dq, dq_errors, dq_warnings = evaluate_data_quality(dq_report, cfg.get("data_quality", {}))
             for w in dq_warnings:
                 print(f"[SIM_LIVE][WARN] {w}")
+            if dq_warnings:
+                runtime.update(
+                    {
+                        "event": "sim_live_data_quality_warn",
+                        "mode": "sim_live",
+                        "cycle": cycle,
+                        "symbol": symbol,
+                        "warning_count": len(dq_warnings),
+                    }
+                )
+                alert.send_event(
+                    event="sim_live_data_quality_warn",
+                    level="WARN",
+                    message=f"cycle={cycle} symbol={symbol}",
+                    data={"warnings": dq_warnings[:5], "report": dq_report},
+                )
             if not ok_dq:
                 runtime.update(
                     {
